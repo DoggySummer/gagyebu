@@ -54,7 +54,7 @@ export default function ChartPage() {
       { field: "category", headerName: "카테고리", sortable: true },
       { field: "subCategory", headerName: "하위카테고리", sortable: true },
       { field: "card", headerName: "카드", sortable: true },
-      { field: "payType", headerName: "구분", sortable: true },
+      { field: "payType", headerName: "구분", sortable: true, flex: 1, minWidth: 80 },
     ],
     []
   );
@@ -99,7 +99,7 @@ export default function ChartPage() {
   }
 
   return (
-    <div className="flex min-h-screen relative">
+    <div className="flex min-h-screen relative w-full md:max-w-[80vw] md:mx-auto">
       <Sidebar />
       <div className="flex-1 p-4 pt-14 pb-8 md:pt-6 md:p-8 min-w-0">
         <header className="flex items-center justify-between mb-8">

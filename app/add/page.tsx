@@ -14,7 +14,7 @@ export default function AddPage() {
   }
 
   return (
-    <div className="flex min-h-screen relative">
+    <div className="flex min-h-screen relative w-full md:max-w-[80vw] md:mx-auto">
       <Sidebar />
       <div className="flex-1 p-4 pt-14 pb-8 md:pt-6 md:p-8 min-w-0">
         <h1 className="text-xl font-semibold mb-6 text-[var(--text)]">
