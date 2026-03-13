@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { CATEGORIES } from "@/lib/mockData";
+import { addTransaction } from "@/actions/transactions";
+import { CATEGORIES } from "@/lib/constants";
 
-/** 목업: 폼 제출 시 /chart로 이동 (실제 저장 없음) */
 export default function AddPage() {
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSubmit(formData: FormData) {
+    await addTransaction(formData);
     router.push("/chart");
   }
 
@@ -21,7 +21,7 @@ export default function AddPage() {
           수동 지출 추가
         </h1>
         <form
-          onSubmit={handleSubmit}
+          action={handleSubmit}
           className="max-w-md space-y-4 rounded-xl border border-[var(--border)] p-6"
           style={{ background: "var(--card-bg)" }}
         >

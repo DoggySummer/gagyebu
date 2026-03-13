@@ -1,26 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-/** 목업: 아무 비밀번호나 입력하면 /chart로 이동 */
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    // 목업: 비밀번호가 비어 있지 않으면 통과
-    if (!password.trim()) {
-      setError("비밀번호를 입력해 주세요.");
+    const result = await signIn("credentials", { password, redirect: false });
+    if (result?.error) {
+      setError("비밀번호가 올바르지 않습니다.");
       setLoading(false);
-      return;
+    } else {
+      router.push("/chart");
     }
-    router.push("/chart");
   }
 
   return (

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-import type { ChartDatum } from "@/lib/mockData";
+import type { ChartDatum } from "@/lib/constants";
 
 const W = 400;
 const H = 260;

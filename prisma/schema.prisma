@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  card        String   @db.VarChar(50)
+  payType     String   @db.VarChar(20)
+  merchant    String   @db.VarChar(255)
+  amount      Int
+  category    String?  @db.VarChar(50)
+  subCategory String?  @db.VarChar(50)
+  sourceFile  String?  @db.VarChar(100)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+  @@map("transactions")
+}

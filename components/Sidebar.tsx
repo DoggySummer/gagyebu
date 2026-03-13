@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 const NAV = [
   { href: "/chart", label: "차트" },
@@ -9,14 +10,8 @@ const NAV = [
   { href: "/excel", label: "엑셀 추가하기" },
 ];
 
-/** 목업: 로그아웃 시 / 로 이동 */
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-
-  function handleLogout() {
-    router.push("/");
-  }
 
   return (
     <aside
@@ -39,7 +34,7 @@ export default function Sidebar() {
       <div className="mt-auto pt-6">
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => signOut({ callbackUrl: "/" })}
           className="w-full rounded-lg px-4 py-3 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-black/5 transition-colors"
         >
           로그아웃
