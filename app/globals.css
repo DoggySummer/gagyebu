@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/* Paperlogy: public/font에 배치된 글꼴 (없으면 시스템 폰트 fallback) */
+@font-face {
+  font-family: "Paperlogy";
+  src: url("/font/Paperlogy-4Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src: url("/font/Paperlogy-5Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src: url("/font/Paperlogy-6SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src: url("/font/Paperlogy-7Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #ffffff;
+  --accent: #ea580c;
+  --accent-dim: rgba(234, 88, 12, 0.12);
+  --text: #1c1917;
+  --text-muted: #78716c;
+  --card-bg: #ffffff;
+  --border: #e7e5e4;
+}
+
+body {
+  font-family: "Paperlogy", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* 주황 포인트 버튼/링크 */
+.btn-primary {
+  background-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* 사이드바 active 링크 */
+.sidebar-link.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.input-dark {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.input-dark::placeholder {
+  color: var(--text-muted);
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
