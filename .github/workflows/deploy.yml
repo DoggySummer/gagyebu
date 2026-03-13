@@ -33,6 +33,6 @@ jobs:
           script: |
             cd ${{ secrets.APP_DIR || '/home/deploy/apps/blog' }}
             git pull origin main
-            npm ci --omit=dev
+            npm ci
             npm run build
             pm2 restart gagyebu --update-env
