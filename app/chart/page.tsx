@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AgGridReact, AgGridProvider } from "ag-grid-react";
-import { AllCommunityModule, type ColDef } from "ag-grid-community";
+import { AllCommunityModule,themeQuartz,  type ColDef } from "ag-grid-community";
 
 const gridModules = [AllCommunityModule];
 import Sidebar from "@/components/Sidebar";
@@ -213,9 +213,9 @@ export default function ChartPage() {
                   거래 목록
                 </h2>
                 <div className="overflow-x-auto -mx-1">
-                  <div className="ag-theme-quartz min-w-[600px]" style={{ height: 320 }}>
+                  <div className="min-w-[600px]" style={{ height: 320 }}>
                   <AgGridReact<TransactionRow>
-                    theme="legacy"
+                    theme={themeQuartz}
                     rowData={transactions}
                     columnDefs={columnDefs}
                     defaultColDef={defaultColDef}
