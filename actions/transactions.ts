@@ -33,6 +33,23 @@ export async function addTransaction(formData: FormData) {
   revalidatePath("/chart");
 }
 
+/** 항목 수정 (가맹점, 금액, 카테고리, 하위카테고리) */
+export async function updateTransaction(
+  id: number,
+  data: { merchant: string; amount: number; category: string | null; subCategory: string | null }
+) {
+  await prisma.transaction.update({
+    where: { id },
+    data: {
+      merchant: data.merchant,
+      amount: data.amount,
+      category: data.category,
+      subCategory: data.subCategory,
+    },
+  });
+  revalidatePath("/chart");
+}
+
 /** 항목 삭제 */
 export async function deleteTransaction(id: number) {
   await prisma.transaction.delete({ where: { id } });
