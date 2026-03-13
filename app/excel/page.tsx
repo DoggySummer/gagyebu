@@ -2,23 +2,42 @@
 
 import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import { processExcelAndSave } from "@/actions/processExcel";
 
-/** 엑셀 파일 선택 후 저장하기 클릭 시 alert('저장되었습니다!') */
+/** 엑셀 업로드 → Claude 프롬프트 해석 → JSON → MySQL 저장, 성공 시 alert('저장되었습니다!') */
 export default function ExcelPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     setFile(f ?? null);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
       alert("엑셀 파일을 선택해 주세요.");
       return;
     }
-    alert("저장되었습니다!");
+    setSaving(true);
+    const formData = new FormData();
+    formData.set("file", file);
+    const result = await processExcelAndSave(formData);
+    setSaving(false);
+    if (result.ok) {
+      if (result.parsedJson) {
+        console.log("[Claude 파싱 JSON]", result.parsedJson);
+      }
+      alert(result.count != null ? `저장되었습니다! (${result.count}건)` : "저장되었습니다!");
+      setFile(null);
+      const input = document.getElementById("excel-file") as HTMLInputElement;
+      if (input) input.value = "";
+    } else {
+      const errMsg = result.error ?? String(result);
+      console.error("[엑셀 저장 오류] 아래 객체를 펼치면 전체 메시지를 볼 수 있습니다.", { error: errMsg });
+      alert("오류가 발생했습니다.");
+    }
   }
 
   return (
@@ -58,9 +77,10 @@ export default function ExcelPage() {
             </div>
             <button
               type="submit"
-              className="btn-primary w-full rounded-lg py-3 font-medium"
+              disabled={saving}
+              className="btn-primary w-full rounded-lg py-3 font-medium disabled:opacity-60"
             >
-              저장하기
+              {saving ? "저장 중..." : "저장하기"}
             </button>
           </form>
         </div>

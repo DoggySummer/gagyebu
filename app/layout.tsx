@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-quartz.css";
 import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {

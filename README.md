@@ -90,13 +90,17 @@ max_connections         = 20
 
 로그인 엔드포인트에 요청 제한을 걸어 브루트포스 차단.
 
+**주의:** `rate=5r/m`, `burst=3`처럼 너무 낮으면, 로그인 실패 시에도 503이 날 수 있음.  
+(한 번 로그인 시도에 session 조회 + callback 등 여러 번 `/api/auth` 요청이 나가서 burst를 초과함.)
+
 ```nginx
 # /etc/nginx/nginx.conf
-limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+# 분당 20회, burst 10으로 정상 로그인/실패 흐름은 통과, 브루트포스는 완화
+limit_req_zone $binary_remote_addr zone=login:10m rate=20r/m;
 
 # 서버 블록 안에
 location /api/auth {
-  limit_req zone=login burst=3 nodelay;
+  limit_req zone=login burst=10 nodelay;
   proxy_pass http://localhost:3000;
 }
 ```
@@ -640,6 +644,31 @@ export default function AddPage() {
 - **동작**: 엑셀 파일을 넣은 뒤 **저장하기** 버튼을 누르면 `alert('저장되었습니다!')` 로 저장 완료 메시지 표시
 - **사이드바**: 좌측 사이드바에 **엑셀 추가하기** 버튼(링크)으로 진입 가능 (`/excel` 경로)
 
+#### 엑셀 업로드 후 처리 흐름 (Claude 해석 → JSON → MySQL)
+
+업로드된 엑셀 파일의 관련 내용을 읽어, Claude 프롬프트로 해석한 뒤 JSON으로 변환하고, 그 JSON 데이터를 MySQL에 넣는 방식으로 동작한다.
+
+1. **엑셀 업로드** — 사용자가 선택한 파일(또는 Spaces에 저장된 원본)을 읽는다.
+2. **텍스트 추출** — 엑셀 시트를 탭으로 구분된 행 단위 텍스트로 만든다. (예: `xlsx` 등으로 파싱)
+3. **Claude 프롬프트 호출** — 아래 프롬프트에 추출한 데이터를 넣어 호출하고, 응답으로 JSON 배열을 받는다.
+4. **MySQL 저장** — 응답 JSON 배열의 각 항목을 `transactions` 테이블에 삽입한다.
+
+**Claude 프롬프트 (카드 사용 내역 → JSON 변환)**
+
+```
+아래는 카드 사용 내역이야. 각 행은 탭으로 구분된 [날짜, 카드, 구분, 가맹점, 금액] 순서야.
+
+규칙:
+- 날짜는 YY.MM.DD 형식 → YYYY-MM-DD로 변환
+- 카테고리는 반드시 다음 중 하나: 식비 / 생활·마트 / 교통 / 의료 / 문화·여가 / 교육 / 기타
+- JSON 배열로만 응답하고 다른 텍스트는 포함하지 마
+
+형식:
+[{"date":"YYYY-MM-DD","card":"...","payType":"...","merchant":"...","amount":0,"category":"...","subCategory":"..."}]
+```
+
+이렇게 얻은 JSON 배열을 그대로 MySQL(Prisma `Transaction` 모델)에 넣으면 된다.
+
 ---
 
 ## 10. CI/CD (GitHub Actions)
@@ -779,6 +808,7 @@ DO_SPACES_SECRET="..."
   ① 엑셀 업로드 (웹)
        /excel 페이지 → 엑셀 파일 선택 → 저장하기 클릭 → alert('저장되었습니다!')
        (사이드바 **엑셀 추가하기** 버튼으로 진입)
+       ※ 업로드된 엑셀 내용을 Claude 프롬프트로 읽어 해석 → JSON 변환 → MySQL 저장
   ② 엑셀 업로드 (스크립트)
        카드사 엑셀 다운로드
        → DigitalOcean Spaces 업로드 (원본 백업)

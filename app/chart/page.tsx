@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { AgGridReact, AgGridProvider } from "ag-grid-react";
+import { AllCommunityModule, type ColDef } from "ag-grid-community";
+
+const gridModules = [AllCommunityModule];
 import Sidebar from "@/components/Sidebar";
 import BarChart from "@/components/charts/BarChart";
 import DonutChart from "@/components/charts/DonutChart";
@@ -11,10 +15,13 @@ import {
   type ChartDatum,
 } from "@/lib/constants";
 
+type TransactionRow = Awaited<ReturnType<typeof getTransactions>>[number];
+
 export default function ChartPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [chartData, setChartData] = useState<ChartDatum[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [summary, setSummary] = useState({
     total: 0,
     count: 0,
@@ -24,16 +31,48 @@ export default function ChartPage() {
 
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
+  const columnDefs = useMemo<ColDef<TransactionRow>[]>(
+    () => [
+      {
+        field: "date",
+        headerName: "날짜",
+        sortable: true,
+        valueFormatter: (p) =>
+          p.value ? new Date(p.value).toISOString().slice(0, 10) : "",
+        comparator: (a, b) =>
+          new Date(a).getTime() - new Date(b).getTime(),
+      },
+      { field: "card", headerName: "카드", sortable: true },
+      { field: "payType", headerName: "구분", sortable: true },
+      { field: "merchant", headerName: "가맹점", sortable: true },
+      {
+        field: "amount",
+        headerName: "금액",
+        sortable: true,
+        valueFormatter: (p) =>
+          p.value != null ? `${Number(p.value).toLocaleString()}원` : "",
+        comparator: (a, b) => (a ?? 0) - (b ?? 0),
+      },
+      { field: "category", headerName: "카테고리", sortable: true },
+      { field: "subCategory", headerName: "하위카테고리", sortable: true },
+    ],
+    []
+  );
+
+  const defaultColDef = useMemo<ColDef<TransactionRow>>(
+    () => ({ sortable: true, resizable: true }),
+    []
+  );
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getTransactions(monthKey).then((transactions) => {
+    getTransactions(monthKey).then((txs) => {
       if (cancelled) return;
-      const aggregated = aggregateByCategory(transactions);
+      setTransactions(txs);
+      const aggregated = aggregateByCategory(txs);
       setChartData(aggregated);
-      setSummary(
-        getSummary(aggregated, transactions.length)
-      );
+      setSummary(getSummary(aggregated, txs.length));
       setLoading(false);
     });
     return () => {
@@ -139,6 +178,27 @@ export default function ChartPage() {
                 <DonutChart key={`donut-${monthKey}`} data={chartData} animationKey={monthKey} />
               </div>
             </section>
+
+            <AgGridProvider modules={gridModules}>
+              <section
+                className="rounded-xl border border-[var(--border)] overflow-hidden mt-8 p-4"
+                style={{ background: "var(--card-bg)" }}
+              >
+                <h2 className="text-sm font-medium text-[var(--text-muted)] mb-2">
+                  거래 목록
+                </h2>
+                <div className="ag-theme-quartz" style={{ height: 360, width: "100%" }}>
+                  <AgGridReact<TransactionRow>
+                    theme="legacy"
+                    rowData={transactions}
+                    columnDefs={columnDefs}
+                    defaultColDef={defaultColDef}
+                    domLayout="normal"
+                    suppressCellFocus
+                  />
+                </div>
+              </section>
+            </AgGridProvider>
           </>
         )}
       </div>
