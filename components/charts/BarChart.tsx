@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import type { ChartDatum } from "@/lib/constants";
 
-const W = 400;
+const W_MIN = 280;
+const W_MAX = 500;
 const H = 260;
-const P = { top: 20, right: 20, bottom: 30, left: 60 };
+const P = { top: 20, right: 20, bottom: 30, left: 56 };
 
 interface BarChartProps {
   data: ChartDatum[];
@@ -22,11 +23,25 @@ interface TooltipState {
 }
 
 export default function BarChart({ data, animationKey }: BarChartProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const setTooltipRef = useRef<(v: TooltipState | null) => void>(() => {});
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [width, setWidth] = useState(W_MIN);
 
   setTooltipRef.current = setTooltip;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? W_MIN;
+      setWidth(Math.min(W_MAX, Math.max(W_MIN, w)));
+    });
+    ro.observe(el);
+    setWidth(Math.min(W_MAX, Math.max(W_MIN, el.getBoundingClientRect().width)));
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!svgRef.current || !data.length) return;
@@ -34,6 +49,7 @@ export default function BarChart({ data, animationKey }: BarChartProps) {
     const filteredData = data.filter((d) => d.amount > 0);
     if (!filteredData.length) return;
 
+    const W = width;
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
@@ -104,13 +120,13 @@ export default function BarChart({ data, animationKey }: BarChartProps) {
       .ease(d3.easeBackOut.overshoot(0.6) as (t: number) => number)
       .attr("y", (d) => y(d.amount))
       .attr("height", (d) => innerH - y(d.amount));
-  }, [data, animationKey]);
+  }, [data, animationKey, width]);
 
   return (
-    <div className="relative inline-block">
+    <div ref={containerRef} className="relative w-full min-w-0">
       <svg
         ref={svgRef}
-        width={W}
+        width={width}
         height={H}
         className="overflow-visible"
         style={{ maxWidth: "100%" }}

@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description: "월별 지출 시각화 개인 가계부",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

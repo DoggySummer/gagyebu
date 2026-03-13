@@ -42,8 +42,6 @@ export default function ChartPage() {
         comparator: (a, b) =>
           new Date(a).getTime() - new Date(b).getTime(),
       },
-      { field: "card", headerName: "카드", sortable: true },
-      { field: "payType", headerName: "구분", sortable: true },
       { field: "merchant", headerName: "가맹점", sortable: true },
       {
         field: "amount",
@@ -55,6 +53,8 @@ export default function ChartPage() {
       },
       { field: "category", headerName: "카테고리", sortable: true },
       { field: "subCategory", headerName: "하위카테고리", sortable: true },
+      { field: "card", headerName: "카드", sortable: true },
+      { field: "payType", headerName: "구분", sortable: true },
     ],
     []
   );
@@ -99,14 +99,14 @@ export default function ChartPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen relative">
       <Sidebar />
-      <div className="flex-1 p-6 md:p-8">
+      <div className="flex-1 p-4 pt-14 pb-8 md:pt-6 md:p-8 min-w-0">
         <header className="flex items-center justify-between mb-8">
           <button
             type="button"
             onClick={prevMonth}
-            className="text-[var(--text-muted)] hover:text-[var(--accent)] p-2 rounded-lg hover:bg-black/5 transition-colors text-xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--accent)] p-2 rounded-lg hover:bg-black/5 transition-colors text-xl leading-none cursor-pointer"
             aria-label="이전 달"
           >
             ‹
@@ -117,7 +117,7 @@ export default function ChartPage() {
           <button
             type="button"
             onClick={nextMonth}
-            className="text-[var(--text-muted)] hover:text-[var(--accent)] p-2 rounded-lg hover:bg-black/5 transition-colors text-xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--accent)] p-2 rounded-lg hover:bg-black/5 transition-colors text-xl leading-none cursor-pointer"
             aria-label="다음 달"
           >
             ›
@@ -181,13 +181,14 @@ export default function ChartPage() {
 
             <AgGridProvider modules={gridModules}>
               <section
-                className="rounded-xl border border-[var(--border)] overflow-hidden mt-8 p-4"
+                className="rounded-xl border border-[var(--border)] overflow-hidden mt-6 md:mt-8 p-3 md:p-4"
                 style={{ background: "var(--card-bg)" }}
               >
                 <h2 className="text-sm font-medium text-[var(--text-muted)] mb-2">
                   거래 목록
                 </h2>
-                <div className="ag-theme-quartz" style={{ height: 360, width: "100%" }}>
+                <div className="overflow-x-auto -mx-1">
+                  <div className="ag-theme-quartz min-w-[600px]" style={{ height: 320 }}>
                   <AgGridReact<TransactionRow>
                     theme="legacy"
                     rowData={transactions}
@@ -196,6 +197,7 @@ export default function ChartPage() {
                     domLayout="normal"
                     suppressCellFocus
                   />
+                  </div>
                 </div>
               </section>
             </AgGridProvider>

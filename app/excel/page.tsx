@@ -41,14 +41,14 @@ export default function ExcelPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen relative">
       <Sidebar />
-      <div className="flex-1 p-6 md:p-8">
+      <div className="flex-1 p-4 pt-14 pb-8 md:pt-6 md:p-8 min-w-0">
         <h1 className="text-xl font-semibold mb-6 text-[var(--text)]">
           엑셀 추가하기
         </h1>
         <div
-          className="max-w-md rounded-xl border border-[var(--border)] p-6"
+          className="w-full max-w-md rounded-xl border border-[var(--border)] p-4 sm:p-6"
           style={{ background: "var(--card-bg)" }}
         >
           <p className="text-sm text-[var(--text-muted)] mb-4">
@@ -67,7 +67,7 @@ export default function ExcelPage() {
                 type="file"
                 accept=".xlsx,.xls"
                 onChange={handleFileChange}
-                className="input-dark w-full rounded-lg px-4 py-3 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:text-white file:font-medium file:cursor-pointer"
+                className="input-dark w-full rounded-lg px-4 py-3 min-h-[44px] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[var(--accent)] file:text-white file:font-medium file:cursor-pointer file:min-h-[40px]"
               />
               {file && (
                 <p className="mt-2 text-sm text-[var(--accent)]">
@@ -78,7 +78,7 @@ export default function ExcelPage() {
             <button
               type="submit"
               disabled={saving}
-              className="btn-primary w-full rounded-lg py-3 font-medium disabled:opacity-60"
+              className="btn-primary w-full rounded-lg py-3 min-h-[48px] font-medium disabled:opacity-60"
             >
               {saving ? "저장 중..." : "저장하기"}
             </button>
