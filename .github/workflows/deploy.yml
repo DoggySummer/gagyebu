@@ -16,28 +16,23 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-
-      - name: Install & Build check
-        run: |
-          npm ci
-          npm run build
-        env:
-          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
-          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
-
+      # 패스프레이즈 오류 시: 배포 전용 키를 패스프레이즈 없이 만들어 쓰는 것을 권장
+      # ssh-keygen -t ed25519 -C "github-actions" -f deploy_key -N ""
+      # 공개키를 서버 ~/.ssh/authorized_keys에 추가, 개인키 전체를 DROPLET_SSH_KEY에 저장
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
+          passphrase: ${{ secrets.DROPLET_SSH_KEY_PASSPHRASE }}
+          port: ${{ secrets.DROPLET_PORT || 22 }}
+          # 패스프레이즈 오류가 계속되면: Secrets에 공백/줄바꿈이 들어갔는지 확인하고,
+          # 또는 배포 전용 키를 패스프레이즈 없이 생성해 사용하세요.
+          debug: true
           script: |
-            cd /var/www/gagyebu
-            git pull origin master
+            cd ${{ secrets.APP_DIR || '/home/deploy/apps/blog' }}
+            git pull origin main
             npm ci --omit=dev
             npm run build
             pm2 restart gagyebu --update-env
