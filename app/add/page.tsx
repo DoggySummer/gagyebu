@@ -88,7 +88,7 @@ export default function AddPage() {
               id="card"
               name="card"
               type="text"
-              defaultValue="마스터034"
+              placeholder="카드선택"
               className="input-dark w-full rounded-lg px-4 py-3 min-h-[44px]"
             />
           </div>
