@@ -5,23 +5,37 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-const BATCH_SIZE = 30;
-const CLAUDE_PROMPT = `아래는 카드 사용 내역이야. 각 행은 탭으로 구분된 [날짜, 카드, 구분, 가맹점, 금액] 순서야.
+const BATCH_SIZE = 20;
 
-날짜 변환 규칙 (반드시 적용):
-- 첫 번째 값이 "YY.MM.DD" 형식(예: 26.01.18, 25.12.01)이면 20YY-MM-DD로 변환해 (26.01.18 → 2026-01-18).
-- 점(.) 대신 슬래시(/)나 하이픈(-)으로 된 경우도 같은 의미(26/01/18, 26-01-18 → 2026-01-18).
-- 숫자만 있는 값(예: 45321)은 Excel 날짜 일련번호이므로 1900-01-01 기준으로 YYYY-MM-DD로 변환해.
-- 위 규칙으로 변환한 날짜를 date 필드에 YYYY-MM-DD만 넣어. 설명 금지.
+// Claude 역할: 날짜 변환 + 카테고리 분류 + 포맷 정규화만 담당
+// 거래 행 필터링은 코드에서 처리 (환각 방지)
+const CLAUDE_PROMPT = `
+아래는 한국 신용카드 실제 거래 행 데이터야. 헤더/소계/합계 행은 이미 제거됐어.
+각 행은 탭으로 구분되어 있어.
 
-그 외 규칙:
-- 날짜를 위 규칙으로도 변환할 수 없으면 그 행만 배열에서 빼라. 설명 금지.
-- 카테고리는 가맹점(가맹점명)을 보고 유추해서 넣어. 반드시 다음 중 하나로: 식비 / 생활·마트 / 교통 / 의료 / 문화·여가 / 교육 / 기타
-- 금액은 원본 숫자 그대로(쉼표 제거). 다섯 번째 값이 금액이면 그걸 사용해.
-- JSON 배열로만 응답하고 다른 텍스트는 포함하지 마
+[날짜 변환 - 반드시 적용]
+- "YY.MM.DD" / "YY/MM/DD" / "YY-MM-DD" → "20YY-MM-DD" (예: 26.01.18 → 2026-01-18)
+- "YYYY.MM.DD" / "YYYY/MM/DD" → "YYYY-MM-DD"
+- Excel 일련번호(44000~50000 사이 숫자) → 1900-01-01 기준으로 YYYY-MM-DD 계산
+- 변환 불가 행은 제외
 
-형식:
-[{"date":"YYYY-MM-DD","card":"...","payType":"...","merchant":"...","amount":0,"category":"...","subCategory":"..."}]
+[결제방식]
+- "일시불" 또는 "할부N개월" (예: 할부3개월)
+- 구분 불가시 "일시불"
+
+[금액] 쉼표 제거 후 숫자. 취소/환불은 음수(-)
+
+[카드사명] 마지막 컬럼에 카드명이 있으면 그대로 사용. 없으면 "알 수 없음"
+
+[카테고리] 가맹점명 기준으로 반드시 아래 중 하나:
+식비 / 생활·마트 / 교통 / 의료 / 문화·여가 / 골프 / 여행 / 기타
+
+[절대 금지]
+- 원본에 없는 행 추가 금지. 입력 행 수 = 출력 행 수
+- 가맹점명을 임의로 바꾸거나 추측하지 마. 원본 텍스트 그대로 사용
+
+JSON 배열만 응답. 마크다운/다른 텍스트 없이:
+[{"date":"YYYY-MM-DD","card":"...","payType":"...","merchant":"...","amount":0,"category":"..."}]
 
 데이터:
 `;
@@ -33,13 +47,134 @@ interface ClaudeRow {
   merchant: string;
   amount: number;
   category: string;
-  subCategory?: string;
 }
 
-/** 엑셀 파일을 파싱 → Claude 프롬프트로 해석 → JSON → MySQL 저장 */
+// 날짜 패턴: YY.MM.DD 또는 YYYY.MM.DD (구분자는 . / -)
+const DATE_PATTERN = /^\d{2,4}[.\-\/]\d{2}[.\-\/]\d{2}$/;
+
+// 소계/합계/헤더 행 판별용 키워드
+const SKIP_KEYWORDS = [
+  "카드소계", "소 계", "합 계", "합계", "이하 여백",
+  "거래일자", "이용일자", "가맹점명", "이용하신", "총건수",
+];
+
+function isSkipRow(cell: string): boolean {
+  return SKIP_KEYWORDS.some((kw) => cell.includes(kw));
+}
+
+/**
+ * 포맷 A: 하나카드 스타일
+ * - 카드명이 거래 행 위에 별도 행으로 존재 (예: "행복Hi-pass 후불하이패스 카드 본인 4518")
+ * - 날짜가 col[0]에 위치
+ */
+function parseHanaFormat(raw: string[][]): string[][] {
+  let currentCard = "";
+  const result: string[][] = [];
+
+  for (const row of raw) {
+    const firstCell = String(row[0] ?? "").trim();
+
+    if (DATE_PATTERN.test(firstCell)) {
+      // 거래 행: 마지막에 카드명 주입
+      result.push([...row, currentCard]);
+    } else if (firstCell && !isSkipRow(firstCell)) {
+      // 날짜도 아니고 스킵 키워드도 아니면 카드명 행으로 간주
+      currentCard = firstCell;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 포맷 B: KB국민카드 스타일
+ * - 헤더 행에 "이용카드" 컬럼 존재
+ * - 카드명이 각 거래 행에 인라인으로 존재
+ * - 날짜가 col[1]에 위치
+ */
+function parseKBFormat(raw: string[][]): string[][] {
+  const result: string[][] = [];
+
+  let dateColIdx = -1;
+  let cardColIdx = -1;
+  let payTypeColIdx = -1;
+  let merchantColIdx = -1;
+  let amountColIdx = -1;
+  let installmentColIdx = -1;
+
+  for (const row of raw) {
+    const cells = row.map((c) => String(c ?? "").trim());
+    const hasDate = cells.some((c) => c.includes("이용일자") || c.includes("거래일자"));
+    const hasCard = cells.some((c) => c.includes("이용카드"));
+
+    if (hasDate && hasCard) {
+      // 헤더 행 → 컬럼 인덱스 매핑
+      cells.forEach((c, i) => {
+        if (c.includes("이용일자") || c.includes("거래일자")) dateColIdx = i;
+        if (c.includes("이용카드")) cardColIdx = i;
+        if (c.includes("구분")) payTypeColIdx = i;
+        if (c.includes("가맹점") || c.includes("이용하신")) merchantColIdx = i;
+        if (c.includes("이용금액")) amountColIdx = i;
+        if (c.includes("할부")) installmentColIdx = i;
+      });
+      continue;
+    }
+
+    if (dateColIdx === -1) continue; // 헤더 아직 못 찾음
+
+    const dateCell = String(row[dateColIdx] ?? "").trim();
+    if (!DATE_PATTERN.test(dateCell)) continue; // 거래 행 아님
+
+    // 표준화된 행으로 변환: [날짜, 구분, 가맹점, 금액, 할부, 카드명]
+    const card = cardColIdx !== -1 ? String(row[cardColIdx] ?? "").trim() : "";
+    const payType = payTypeColIdx !== -1 ? String(row[payTypeColIdx] ?? "").trim() : "";
+    const merchant = merchantColIdx !== -1 ? String(row[merchantColIdx] ?? "").trim() : "";
+    const amount = amountColIdx !== -1 ? String(row[amountColIdx] ?? "").trim() : "";
+    const installment = installmentColIdx !== -1 ? String(row[installmentColIdx] ?? "").trim() : "";
+
+    result.push([dateCell, payType, merchant, amount, installment, card]);
+  }
+
+  return result;
+}
+
+/**
+ * 포맷 자동 감지
+ * - 헤더 행에 "이용카드" 컬럼이 있으면 KB 포맷
+ * - 없으면 하나카드 포맷
+ */
+function detectFormat(raw: string[][]): "KB" | "HANA" {
+  for (const row of raw) {
+    const cells = row.map((c) => String(c ?? "").trim());
+    if (cells.some((c) => c.includes("이용카드"))) {
+      return "KB";
+    }
+  }
+  return "HANA";
+}
+
+/** JSON 배열을 안전하게 추출 */
+function extractJsonArray(text: string): ClaudeRow[] {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) {
+    throw new Error(
+      `Claude 응답에서 JSON 배열을 찾을 수 없음.\n응답: ${text.slice(0, 300)}`
+    );
+  }
+  return JSON.parse(match[0]) as ClaudeRow[];
+}
+
+/** 엑셀 파일을 파싱 → 포맷 감지 → 거래 행 추출 → Claude로 정규화 → DB 저장 */
 export async function processExcelAndSave(
   formData: FormData
-): Promise<{ ok: boolean; count?: number; error?: string; parsedJson?: ClaudeRow[] }> {
+): Promise<{
+  ok: boolean;
+  count?: number;
+  error?: string;
+  parsedJson?: ClaudeRow[];
+  detectedFormat?: string;
+}> {
+  // ── 파일 유효성 검사 ──────────────────────────────────────
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
     return { ok: false, error: "엑셀 파일을 선택해 주세요." };
@@ -56,6 +191,14 @@ export async function processExcelAndSave(
   }
 
   try {
+    // ── 중복 파일 방지 ────────────────────────────────────────
+    const sourceFile = file.name;
+    const existing = await prisma.transaction.findFirst({ where: { sourceFile } });
+    if (existing) {
+      return { ok: false, error: `"${sourceFile}" 파일은 이미 업로드되었습니다.` };
+    }
+
+    // ── 엑셀 파싱 ─────────────────────────────────────────────
     const buffer = Buffer.from(await file.arrayBuffer());
     const workbook = XLSX.read(buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -63,47 +206,56 @@ export async function processExcelAndSave(
       return { ok: false, error: "엑셀 시트를 읽을 수 없습니다." };
     }
 
-    const raw = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
-    // 2단 헤더(1~3행) + 마지막 소계/합계 2행 제거 (README 기준)
-    const dataRows = raw
-      .slice(3, raw.length - 2)
-      .filter((row) => row && row[0] && row[3]);
+    const raw = XLSX.utils.sheet_to_json<string[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: false, // 날짜/숫자를 문자열로 읽기 (Excel 일련번호 방지)
+    });
+
+    // 빈 행 제거
+    const cleanRaw = raw.filter((row) =>
+      row.some((cell) => String(cell).trim() !== "")
+    );
+
+    // ── 포맷 감지 & 거래 행 추출 ──────────────────────────────
+    const format = detectFormat(cleanRaw);
+    const dataRows =
+      format === "KB" ? parseKBFormat(cleanRaw) : parseHanaFormat(cleanRaw);
 
     if (dataRows.length === 0) {
       return { ok: false, error: "처리할 거래 데이터가 없습니다." };
     }
 
-    const sourceFile = file.name;
+    // ── Claude API 호출 (배치 처리) ──────────────────────────
     const client = new Anthropic({ apiKey });
     const allResults: ClaudeRow[] = [];
 
     for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
       const batch = dataRows.slice(i, i + BATCH_SIZE);
       const batchText = batch
-      .map((row) => [row[0], row[1], row[2], row[3], row[5]].join("\t"))
-      .join("\n");
+        .map((row) => row.map((cell) => String(cell)).join("\t"))
+        .join("\n");
 
       const response = await client.messages.create({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2000,
-        messages: [
-          {
-            role: "user",
-            content: CLAUDE_PROMPT + batchText,
-          },
-        ],
+        max_tokens: 4000,
+        messages: [{ role: "user", content: CLAUDE_PROMPT + batchText }],
       });
 
-      const rawText = response.content[0]?.type === "text" ? response.content[0].text : "";
-      // Claude가 ```json ... ``` 마크다운으로 감싸서 보낼 수 있음 → 제거 후 파싱
-      const text = rawText
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
-      const parsed = JSON.parse(text) as ClaudeRow[];
+      const rawText =
+        response.content[0]?.type === "text" ? response.content[0].text : "";
+      const parsed = extractJsonArray(rawText);
       allResults.push(...parsed);
     }
 
+    if (allResults.length === 0) {
+      return {
+        ok: false,
+        error: "Claude가 거래 데이터를 추출하지 못했습니다. 파일을 확인해 주세요.",
+      };
+    }
+
+    // ── DB 저장 ───────────────────────────────────────────────
     await prisma.transaction.createMany({
       data: allResults.map((tx) => ({
         date: new Date(tx.date),
@@ -112,13 +264,17 @@ export async function processExcelAndSave(
         merchant: tx.merchant ?? "",
         amount: Number(tx.amount) || 0,
         category: tx.category ?? null,
-        subCategory: tx.subCategory ?? null,
         sourceFile,
       })),
     });
 
     revalidatePath("/chart");
-    return { ok: true, count: allResults.length, parsedJson: allResults };
+    return {
+      ok: true,
+      count: allResults.length,
+      parsedJson: allResults,
+      detectedFormat: format, // 디버깅용: 어떤 포맷으로 감지됐는지 확인 가능
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
     return { ok: false, error: message };

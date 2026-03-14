@@ -93,18 +93,6 @@ export default function AddPage() {
             />
           </div>
           <div>
-            <label htmlFor="subCategory" className="block text-sm text-[var(--text-muted)] mb-1">
-              세부 카테고리 (선택)
-            </label>
-            <input
-              id="subCategory"
-              name="subCategory"
-              type="text"
-              placeholder="예: 카페, 배달"
-              className="input-dark w-full rounded-lg px-4 py-3 min-h-[44px]"
-            />
-          </div>
-          <div>
             <label htmlFor="payType" className="block text-sm text-[var(--text-muted)] mb-1">
               결제 구분
             </label>

@@ -16,9 +16,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   payType     VARCHAR(20)  NOT NULL,
   merchant    VARCHAR(255) NOT NULL,
   amount      INT          NOT NULL,
-  category    VARCHAR(50)  NULL,
-  subCategory VARCHAR(50)  NULL,
-  sourceFile  VARCHAR(100) NULL,
+  category   VARCHAR(50)  NULL,
+  sourceFile VARCHAR(100) NULL,
   createdAt   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
   PRIMARY KEY (id),

@@ -13,9 +13,8 @@ model Transaction {
   payType     String   @db.VarChar(20)
   merchant    String   @db.VarChar(255)
   amount      Int
-  category    String?  @db.VarChar(50)
-  subCategory String?  @db.VarChar(50)
-  sourceFile  String?  @db.VarChar(100)
+  category   String?  @db.VarChar(50)
+  sourceFile String?  @db.VarChar(100)
   createdAt   DateTime @default(now())
 
   @@index([date])

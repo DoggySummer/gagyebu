@@ -7,7 +7,8 @@ export const CATEGORIES = [
   "교통",
   "의료",
   "문화·여가",
-  "교육",
+  "골프",
+  "여행",
   "기타",
 ] as const;
 

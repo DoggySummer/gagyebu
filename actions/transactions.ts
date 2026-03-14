@@ -26,17 +26,16 @@ export async function addTransaction(formData: FormData) {
       merchant: formData.get("merchant") as string,
       amount: Number(formData.get("amount")),
       category: formData.get("category") as string,
-      subCategory: (formData.get("subCategory") as string) ?? "",
       sourceFile: "manual",
     },
   });
   revalidatePath("/chart");
 }
 
-/** 항목 수정 (가맹점, 금액, 카테고리, 하위카테고리) */
+/** 항목 수정 (가맹점, 금액, 카테고리) */
 export async function updateTransaction(
   id: number,
-  data: { merchant: string; amount: number; category: string | null; subCategory: string | null }
+  data: { merchant: string; amount: number; category: string | null }
 ) {
   await prisma.transaction.update({
     where: { id },
@@ -44,7 +43,6 @@ export async function updateTransaction(
       merchant: data.merchant,
       amount: data.amount,
       category: data.category,
-      subCategory: data.subCategory,
     },
   });
   revalidatePath("/chart");

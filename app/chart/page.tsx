@@ -35,7 +35,6 @@ export default function ChartPage() {
     merchant: "",
     amount: 0,
     category: "",
-    subCategory: "",
   });
 
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
@@ -70,7 +69,6 @@ export default function ChartPage() {
         comparator: (a, b) => (a ?? 0) - (b ?? 0),
       },
       { field: "category", headerName: "카테고리", sortable: true },
-      { field: "subCategory", headerName: "하위카테고리", sortable: true },
       { field: "card", headerName: "카드", sortable: true },
       { field: "payType", headerName: "구분", sortable: true },
       {
@@ -230,7 +228,6 @@ export default function ChartPage() {
                             merchant: row.merchant,
                             amount: row.amount,
                             category: row.category ?? "",
-                            subCategory: row.subCategory ?? "",
                           });
                         }
                       },
@@ -276,7 +273,6 @@ export default function ChartPage() {
                         merchant: editForm.merchant,
                         amount: editForm.amount,
                         category: editForm.category || null,
-                        subCategory: editForm.subCategory || null,
                       });
                       refetch();
                       setEditingRow(null);
@@ -316,16 +312,6 @@ export default function ChartPage() {
                           </option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm text-[var(--text-muted)] mb-1">하위 카테고리</label>
-                      <input
-                        type="text"
-                        value={editForm.subCategory}
-                        onChange={(e) => setEditForm((f) => ({ ...f, subCategory: e.target.value }))}
-                        className="input-dark w-full rounded-lg px-4 py-2"
-                        placeholder="선택"
-                      />
                     </div>
                     <div className="flex gap-2 pt-2">
                       <button type="submit" className="btn-primary flex-1 rounded-lg py-2.5 font-medium cursor-pointer">
