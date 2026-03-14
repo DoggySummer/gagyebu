@@ -191,12 +191,7 @@ export async function processExcelAndSave(
   }
 
   try {
-    // ── 중복 파일 방지 ────────────────────────────────────────
     const sourceFile = file.name;
-    const existing = await prisma.transaction.findFirst({ where: { sourceFile } });
-    if (existing) {
-      return { ok: false, error: `"${sourceFile}" 파일은 이미 업로드되었습니다.` };
-    }
 
     // ── 엑셀 파싱 ─────────────────────────────────────────────
     const buffer = Buffer.from(await file.arrayBuffer());

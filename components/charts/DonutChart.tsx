@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import * as d3 from "d3";
 import type { ChartDatum } from "@/lib/constants";
 
+const NARROW_BREAKPOINT = 768;
+
 const SIZE = 260;
 const P = 20;
 
@@ -34,8 +36,17 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const setTooltipRef = useRef<(v: TooltipState | null) => void>(() => {});
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
 
   setTooltipRef.current = setTooltip;
+
+  useEffect(() => {
+    const check = () =>
+      setIsNarrowScreen(typeof window !== "undefined" && window.innerWidth < NARROW_BREAKPOINT);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const filtered = useMemo(
     () => data.filter((d) => d.amount > 0),
@@ -96,16 +107,28 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
       .attr("stroke-width", 2)
       .on("mouseover", function (event, d) {
         const pct = total > 0 ? (d.data.amount / total) * 100 : 0;
+        const e = event as MouseEvent;
         setTooltipRef.current?.({
           category: d.data.category,
           percentage: pct,
           amount: d.data.amount,
-          x: event.pageX,
-          y: event.pageY,
+          x: e.clientX,
+          y: e.clientY,
         });
       })
       .on("mouseout", function () {
         setTooltipRef.current?.(null);
+      })
+      .on("click", function (event, d) {
+        const pct = total > 0 ? (d.data.amount / total) * 100 : 0;
+        const e = event as MouseEvent;
+        setTooltipRef.current?.({
+          category: d.data.category,
+          percentage: pct,
+          amount: d.data.amount,
+          x: e.clientX,
+          y: e.clientY,
+        });
       });
 
     paths
@@ -123,7 +146,7 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
   }, [data, animationKey, filtered, total]);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4 w-full">
+    <div className="flex flex-col lg:flex-row items-center gap-4 w-full">
       <div className="relative flex-shrink-0">
         <svg
           ref={svgRef}
@@ -136,7 +159,7 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
           <div
             className="fixed z-10 px-3 py-2 rounded-lg shadow-lg text-sm pointer-events-none border border-[var(--border)]"
             style={{
-              left: tooltip.x + 12,
+              left: isNarrowScreen ? 12 : tooltip.x + 12,
               top: tooltip.y + 12,
               background: "var(--card-bg)",
               color: "var(--text)",
@@ -150,7 +173,7 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
         )}
       </div>
       {legendItems.length > 0 && (
-        <ul className="flex flex-col gap-2 text-sm">
+        <ul className="flex flex-col gap-2 text-sm flex-shrink-0 md:hidden lg:flex">
           {legendItems.map((item) => (
             <li
               key={item.category}

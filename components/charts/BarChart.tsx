@@ -5,7 +5,7 @@ import * as d3 from "d3";
 import type { ChartDatum } from "@/lib/constants";
 
 const W_MIN = 280;
-const W_MAX = 500;
+const W_MAX = 640;
 const H = 260;
 const P = { top: 20, right: 20, bottom: 30, left: 56 };
 
@@ -64,7 +64,7 @@ export default function BarChart({ data, animationKey }: BarChartProps) {
       .scaleBand()
       .domain(filteredData.map((d) => d.category))
       .range([0, innerW])
-      .padding(0.25);
+      .padding(0.45);
 
     const y = d3
       .scaleLinear()
