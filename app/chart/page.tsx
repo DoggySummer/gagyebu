@@ -229,7 +229,7 @@ export default function ChartPage() {
   }
 
   return (
-    <div className="flex min-h-screen relative w-full md:max-w-[80vw] md:mx-auto">
+    <div className="flex min-h-screen relative w-full">
       <Sidebar />
       <div className="flex-1 p-4 pt-14 pb-8 md:pt-6 md:p-8 min-w-0">
         <header className="flex items-center justify-between mb-8">
@@ -330,10 +330,10 @@ export default function ChartPage() {
                   </select>
                 </div>
                 {compareMonthKey && compareChartScales ? (
-                  <div className="flex flex-col lg:flex-row gap-4 w-full min-w-0 items-start">
+                  <div className="flex flex-col min-[1700px]:flex-row gap-4 w-full min-w-0 items-center">
                     <div
                       ref={compareChartContainerRef}
-                      className="min-w-0 overflow-x-auto flex-shrink-0"
+                      className="min-w-0 overflow-x-auto flex-shrink-0 w-full flex justify-center min-[1700px]:w-auto min-[1700px]:flex-initial"
                       style={{ maxWidth: 640 }}
                     >
                       <svg
@@ -376,22 +376,6 @@ export default function ChartPage() {
                                   {tick >= 0 ? `+${tick.toLocaleString()}` : tick.toLocaleString()}
                                 </text>
                               </g>
-                            );
-                          })}
-                          {/* X축 카테고리 레이블 */}
-                          {CATEGORIES.map((category) => {
-                            const x = compareChartScales.xScale(category) ?? 0;
-                            return (
-                              <text
-                                key={category}
-                                x={x + compareChartScales.xScale.bandwidth() / 2}
-                                y={compareChartInnerH + 16}
-                                textAnchor="middle"
-                                fill="#78716c"
-                                fontSize={11}
-                              >
-                                {category}
-                              </text>
                             );
                           })}
                           {/* 증감 바: 이번 달 > 전월 → 위, 전월 > 이번 달 → 아래 */}
@@ -438,7 +422,7 @@ export default function ChartPage() {
                       </svg>
                     </div>
                     {compareSummary && (
-                      <div className="text-sm min-w-0 max-w-[220px] lg:max-w-[260px] space-y-4 pt-1">
+                      <div className="text-sm min-w-0 max-w-[220px] min-[1700px]:max-w-[260px] w-full min-[1700px]:w-auto space-y-4 pt-1">
                         <div className="min-w-0">
                           <p className="text-[var(--text-muted)] mb-0.5">총 지출 비교</p>
                           <p className="text-[var(--text)] break-words">

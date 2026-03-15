@@ -146,7 +146,7 @@ export default function DonutChart({ data, animationKey }: DonutChartProps) {
   }, [data, animationKey, filtered, total]);
 
   return (
-    <div className="flex flex-col lg:flex-row items-center gap-4 w-full">
+    <div className="flex flex-col min-[1700px]:flex-row items-center gap-4 w-full min-w-0">
       <div className="relative flex-shrink-0">
         <svg
           ref={svgRef}
