@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import * as d3 from "d3";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AgGridReact, AgGridProvider } from "ag-grid-react";
 import { AllCommunityModule, themeQuartz, type ColDef } from "ag-grid-community";
 
@@ -9,6 +8,7 @@ const gridModules = [AllCommunityModule];
 import Sidebar from "@/components/Sidebar";
 import BarChart from "@/components/charts/BarChart";
 import DonutChart from "@/components/charts/DonutChart";
+import CompareMonthChart from "@/components/charts/CompareMonthChart";
 import TransactionActionsCell from "@/components/charts/TransactionActionsCell";
 import { getTransactions, updateTransaction, deleteTransaction } from "@/actions/transactions";
 import {
@@ -37,104 +37,8 @@ export default function ChartPage() {
     amount: 0,
     category: "",
   });
-  const [compareMonthKey, setCompareMonthKey] = useState<string | null>(null);
-  const [compareChartData, setCompareChartData] = useState<ChartDatum[]>([]);
-  const compareChartContainerRef = useRef<HTMLDivElement>(null);
-  const [compareChartWidth, setCompareChartWidth] = useState(320);
-  const [compareChartTooltip, setCompareChartTooltip] = useState<{
-    category: string;
-    diff: number;
-    x: number;
-    y: number;
-  } | null>(null);
-  const [isNarrowScreen, setIsNarrowScreen] = useState(false);
 
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-
-  useEffect(() => {
-    const check = () => setIsNarrowScreen(typeof window !== "undefined" && window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  useEffect(() => {
-    const el = compareChartContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 320;
-      setCompareChartWidth(Math.min(640, Math.max(240, w)));
-    });
-    ro.observe(el);
-    setCompareChartWidth(
-      Math.min(640, Math.max(240, el.getBoundingClientRect().width || 320))
-    );
-    return () => ro.disconnect();
-  }, []);
-
-  /** 비교용으로 선택 가능한 이전 월 목록 (현재 월 제외, 최근 12개월) */
-  const compareMonthOptions = useMemo(() => {
-    const options: { key: string; label: string }[] = [];
-    const d = new Date(year, month - 1, 1);
-    for (let i = 1; i <= 12; i++) {
-      d.setMonth(d.getMonth() - 1);
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      const key = `${y}-${String(m).padStart(2, "0")}`;
-      options.push({ key, label: `${y}년 ${m}월` });
-    }
-    return options;
-  }, [year, month]);
-
-  /** 이전 월과 비교 차트: 증감 바 차트용 스케일·데이터 (높이 260, 옆 차트와 동일, 너비 반응형) */
-  const COMPARE_CHART_H = 260;
-  const COMPARE_CHART_P = { top: 20, right: 20, bottom: 30, left: 76 };
-  const COMPARE_BAR_MIN_HOVER_HEIGHT = 24;
-  const compareChartInnerW = compareChartWidth - COMPARE_CHART_P.left - COMPARE_CHART_P.right;
-  const compareChartInnerH = COMPARE_CHART_H - COMPARE_CHART_P.top - COMPARE_CHART_P.bottom;
-
-  const compareChartScales = useMemo(() => {
-    if (!compareMonthKey || compareChartData.length === 0 || compareChartInnerW <= 0)
-      return null;
-    const diffData = CATEGORIES.map((category) => {
-      const current = chartData.find((d) => d.category === category)?.amount ?? 0;
-      const compare = compareChartData.find((d) => d.category === category)?.amount ?? 0;
-      return { category, diff: current - compare };
-    });
-    const allDiffs = diffData.map((d) => d.diff);
-    const minD = Math.min(0, ...allDiffs);
-    const maxD = Math.max(0, ...allDiffs);
-    const extent = Math.max(Math.abs(minD), Math.abs(maxD), 1);
-    const xScale = d3
-      .scaleBand<string>()
-      .domain(CATEGORIES)
-      .range([0, compareChartInnerW])
-      .padding(0.35);
-    const yScale = d3
-      .scaleLinear()
-      .domain([-extent, extent])
-      .range([compareChartInnerH, 0]);
-    const zeroY = yScale(0);
-    return { diffData, xScale, yScale, zeroY };
-  }, [compareMonthKey, compareChartData, chartData, compareChartInnerW]);
-
-  /** 이전 월과 비교 요약: 총 지출 증감, 늘어난/줄어든 카테고리 */
-  const compareSummary = useMemo(() => {
-    if (!compareMonthKey || compareChartData.length === 0) return null;
-    const totalCurrent = chartData.reduce((s, d) => s + d.amount, 0);
-    const totalCompare = compareChartData.reduce((s, d) => s + d.amount, 0);
-    const totalDiff = totalCurrent - totalCompare;
-    const increased: string[] = [];
-    const decreased: string[] = [];
-    CATEGORIES.forEach((category) => {
-      const current = chartData.find((d) => d.category === category)?.amount ?? 0;
-      const compare = compareChartData.find((d) => d.category === category)?.amount ?? 0;
-      const diff = current - compare;
-      if (diff > 0) increased.push(category);
-      else if (diff < 0) decreased.push(category);
-    });
-    return { totalDiff, increased, decreased };
-  }, [compareMonthKey, compareChartData, chartData]);
 
   const refetch = useCallback(() => {
     getTransactions(monthKey).then((txs) => {
@@ -199,16 +103,6 @@ export default function ChartPage() {
       cancelled = true;
     };
   }, [monthKey]);
-
-  useEffect(() => {
-    if (!compareMonthKey) {
-      setCompareChartData([]);
-      return;
-    }
-    getTransactions(compareMonthKey).then((txs) => {
-      setCompareChartData(aggregateByCategory(txs));
-    });
-  }, [compareMonthKey]);
 
   function prevMonth() {
     if (month === 1) {
@@ -307,189 +201,7 @@ export default function ChartPage() {
                 </h2>
                 <DonutChart key={`donut-${monthKey}`} data={chartData} animationKey={monthKey} />
               </div>
-              <div
-                className="rounded-xl border border-[var(--border)] p-6 flex flex-col items-center flex-1 min-h-[340px] min-w-0"
-                style={{ background: "var(--card-bg)" }}
-              >
-                <h2 className="text-sm font-medium text-[var(--text-muted)] mb-4">
-                  이전 월과 비교
-                </h2>
-                <div className="mb-3 w-full max-w-[180px]">
-                  <select
-                    value={compareMonthKey ?? ""}
-                    onChange={(e) => setCompareMonthKey(e.target.value || null)}
-                    className="input-dark rounded-lg px-3 py-2 text-sm w-full"
-                    aria-label="비교할 월 선택"
-                  >
-                    <option value="">비교할 월 선택</option>
-                    {compareMonthOptions.map(({ key, label }) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {compareMonthKey && compareChartScales ? (
-                  <div className="flex flex-col min-[1700px]:flex-row gap-4 w-full min-w-0 items-center">
-                    <div
-                      ref={compareChartContainerRef}
-                      className="min-w-0 overflow-x-auto flex-shrink-0 w-full flex justify-center min-[1700px]:w-auto min-[1700px]:flex-initial"
-                      style={{ maxWidth: 640 }}
-                    >
-                      <svg
-                        width={compareChartWidth}
-                        height={COMPARE_CHART_H}
-                        className="overflow-visible"
-                        style={{ maxWidth: "100%" }}
-                      >
-                        <g transform={`translate(${COMPARE_CHART_P.left},${COMPARE_CHART_P.top})`}>
-                          {/* 0 기준선 */}
-                          <line
-                            x1={0}
-                            x2={compareChartInnerW}
-                            y1={compareChartScales.zeroY}
-                            y2={compareChartScales.zeroY}
-                            stroke="var(--border)"
-                            strokeWidth={1}
-                            strokeDasharray="4,2"
-                          />
-                          {/* Y축 눈금·레이블 */}
-                          {compareChartScales.yScale.ticks(5).map((tick) => {
-                            const y = compareChartScales.yScale(tick);
-                            return (
-                              <g key={tick} transform={`translate(0,${y})`}>
-                                <line
-                                  x1={0}
-                                  x2={compareChartInnerW}
-                                  stroke="var(--border)"
-                                  strokeWidth={0.5}
-                                  strokeDasharray="2,2"
-                                />
-                                <text
-                                  x={-8}
-                                  y={0}
-                                  dy="0.32em"
-                                  textAnchor="end"
-                                  fill="#78716c"
-                                  fontSize={11}
-                                >
-                                  {tick >= 0 ? `+${tick.toLocaleString()}` : tick.toLocaleString()}
-                                </text>
-                              </g>
-                            );
-                          })}
-                          {/* 증감 바: 이번 달 > 전월 → 위, 전월 > 이번 달 → 아래 */}
-                          {compareChartScales.diffData.map(({ category, diff }) => {
-                            const x = compareChartScales.xScale(category) ?? 0;
-                            const y0 = compareChartScales.zeroY;
-                            const y1 = compareChartScales.yScale(diff);
-                            const y = Math.min(y0, y1);
-                            const height = Math.abs(y1 - y0);
-                            const fill =
-                              diff > 0 ? "#dc2626" : diff < 0 ? "#059669" : "var(--text-muted)";
-                            const hoverHeight = Math.max(height, COMPARE_BAR_MIN_HOVER_HEIGHT);
-                            const hoverY = y - (hoverHeight - height) / 2;
-                            return (
-                              <g key={category}>
-                                <rect
-                                  x={x}
-                                  y={y}
-                                  width={compareChartScales.xScale.bandwidth()}
-                                  height={height}
-                                  fill={fill}
-                                  rx={2}
-                                />
-                                <rect
-                                  x={x}
-                                  y={hoverY}
-                                  width={compareChartScales.xScale.bandwidth()}
-                                  height={hoverHeight}
-                                  fill="transparent"
-                                  onMouseEnter={(e) =>
-                                    setCompareChartTooltip({
-                                      category,
-                                      diff,
-                                      x: e.clientX,
-                                      y: e.clientY,
-                                    })
-                                  }
-                                  onMouseLeave={() => setCompareChartTooltip(null)}
-                                />
-                              </g>
-                            );
-                          })}
-                        </g>
-                      </svg>
-                    </div>
-                    {compareSummary && (
-                      <div className="text-sm min-w-0 max-w-[220px] min-[1700px]:max-w-[260px] w-full min-[1700px]:w-auto space-y-4 pt-1">
-                        <div className="min-w-0">
-                          <p className="text-[var(--text-muted)] mb-0.5">총 지출 비교</p>
-                          <p className="text-[var(--text)] break-words">
-                            {compareSummary.totalDiff > 0 ? (
-                              <span className="text-red-600 font-medium">
-                                {compareSummary.totalDiff.toLocaleString()}원 증가
-                              </span>
-                            ) : compareSummary.totalDiff < 0 ? (
-                              <span className="text-emerald-600 font-medium">
-                                {Math.abs(compareSummary.totalDiff).toLocaleString()}원 감소
-                              </span>
-                            ) : (
-                              <span className="text-[var(--text-muted)]">변동 없음</span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[var(--text-muted)] mb-0.5">늘어난 카테고리</p>
-                          <p className="text-red-600 break-words">
-                            {compareSummary.increased.length > 0
-                              ? compareSummary.increased.join(", ")
-                              : "-"}
-                          </p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[var(--text-muted)] mb-0.5">줄어든 카테고리</p>
-                          <p className="text-emerald-600 break-words">
-                            {compareSummary.decreased.length > 0
-                              ? compareSummary.decreased.join(", ")
-                              : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : compareMonthKey ? (
-                  <p className="text-sm text-[var(--text-muted)]">불러오는 중...</p>
-                ) : (
-                  <p className="text-sm text-[var(--text-muted)]">위에서 비교할 월을 선택하세요.</p>
-                )}
-                {compareChartTooltip && (
-                  <div
-                    className="fixed z-10 px-3 py-2 rounded-lg shadow-lg text-sm pointer-events-none border border-[var(--border)]"
-                    style={{
-                      left: isNarrowScreen ? 12 : compareChartTooltip.x + 12,
-                      top: compareChartTooltip.y + 12,
-                      background: "var(--card-bg)",
-                      color: "var(--text)",
-                    }}
-                  >
-                    <div className="font-medium">{compareChartTooltip.category}</div>
-                    <div className="text-[var(--text-muted)]">
-                      {compareChartTooltip.diff > 0 ? (
-                        <span className="text-red-600">
-                          +{compareChartTooltip.diff.toLocaleString()}원 증가
-                        </span>
-                      ) : compareChartTooltip.diff < 0 ? (
-                        <span className="text-emerald-600">
-                          {compareChartTooltip.diff.toLocaleString()}원 감소
-                        </span>
-                      ) : (
-                        "변동 없음"
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <CompareMonthChart chartData={chartData} year={year} month={month} />
             </section>
 
             <AgGridProvider modules={gridModules}>
