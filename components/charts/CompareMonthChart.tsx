@@ -188,10 +188,10 @@ export default function CompareMonthChart({ chartData, year, month }: CompareMon
       </div>
 
       {compareMonthKey && scales ? (
-        <div className="flex flex-col min-[1700px]:flex-row gap-4 w-full min-w-0 items-center">
+        <div className="flex flex-col min-[2300px]:flex-row gap-4 w-full min-w-0 items-center">
           <div
             ref={containerRef}
-            className="min-w-0 overflow-x-auto flex-shrink-0 w-full flex justify-center min-[1700px]:w-auto"
+            className="min-w-0 overflow-x-auto flex-shrink-0 w-full flex justify-center min-[2300px]:w-auto"
             style={{ maxWidth: 640 }}
           >
             <svg width={chartWidth} height={H} className="overflow-visible" style={{ maxWidth: "100%" }}>
@@ -255,7 +255,7 @@ export default function CompareMonthChart({ chartData, year, month }: CompareMon
           </div>
 
           {summary && (
-            <div className="text-sm min-w-0 max-w-[220px] min-[1700px]:max-w-[260px] w-full space-y-4 pt-1">
+            <div className="text-sm min-w-0 max-w-[220px] min-[2300px]:max-w-[260px] w-full space-y-4 pt-1 text-left self-start">
               <div>
                 <p className="text-[var(--text-muted)] mb-0.5">총 지출 비교</p>
                 <p>
