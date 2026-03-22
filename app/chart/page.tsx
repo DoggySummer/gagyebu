@@ -10,7 +10,13 @@ import Sidebar from "@/components/Sidebar";
 import BarChart from "@/components/charts/BarChart";
 import DonutChart from "@/components/charts/DonutChart";
 import TransactionActionsCell from "@/components/charts/TransactionActionsCell";
-import { getTransactions, updateTransaction, deleteTransaction } from "@/actions/transactions";
+import {
+  getTransactions,
+  updateTransaction,
+  deleteTransaction,
+  type LedgerTransactionRow,
+} from "@/actions/transactions";
+import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
 import {
   aggregateByCategory,
   getSummary,
@@ -18,9 +24,10 @@ import {
   type ChartDatum,
 } from "@/lib/constants";
 
-type TransactionRow = Awaited<ReturnType<typeof getTransactions>>[number];
+type TransactionRow = LedgerTransactionRow;
 
 export default function ChartPage() {
+  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [chartData, setChartData] = useState<ChartDatum[]>([]);
@@ -137,13 +144,13 @@ export default function ChartPage() {
   }, [compareMonthKey, compareChartData, chartData]);
 
   const refetch = useCallback(() => {
-    getTransactions(monthKey).then((txs) => {
+    getTransactions(monthKey, ledgerOwner).then((txs) => {
       setTransactions(txs);
       const aggregated = aggregateByCategory(txs);
       setChartData(aggregated);
       setSummary(getSummary(aggregated, txs.length));
     });
-  }, [monthKey]);
+  }, [monthKey, ledgerOwner]);
 
   const columnDefs = useMemo<ColDef<TransactionRow>[]>(
     () => [
@@ -187,7 +194,7 @@ export default function ChartPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getTransactions(monthKey).then((txs) => {
+    getTransactions(monthKey, ledgerOwner).then((txs) => {
       if (cancelled) return;
       setTransactions(txs);
       const aggregated = aggregateByCategory(txs);
@@ -198,17 +205,17 @@ export default function ChartPage() {
     return () => {
       cancelled = true;
     };
-  }, [monthKey]);
+  }, [monthKey, ledgerOwner]);
 
   useEffect(() => {
     if (!compareMonthKey) {
       setCompareChartData([]);
       return;
     }
-    getTransactions(compareMonthKey).then((txs) => {
+    getTransactions(compareMonthKey, ledgerOwner).then((txs) => {
       setCompareChartData(aggregateByCategory(txs));
     });
-  }, [compareMonthKey]);
+  }, [compareMonthKey, ledgerOwner]);
 
   function prevMonth() {
     if (month === 1) {
@@ -539,7 +546,7 @@ export default function ChartPage() {
                       },
                       onDelete: async (data: { id: number }) => {
                         if (!confirm("이 거래를 삭제할까요?")) return;
-                        await deleteTransaction(data.id);
+                        await deleteTransaction(data.id, ledgerOwner);
                         refetch();
                       },
                     }}
@@ -575,11 +582,15 @@ export default function ChartPage() {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       if (!editingRow) return;
-                      await updateTransaction(editingRow.id, {
-                        merchant: editForm.merchant,
-                        amount: editForm.amount,
-                        category: editForm.category || null,
-                      });
+                      await updateTransaction(
+                        editingRow.id,
+                        {
+                          merchant: editForm.merchant,
+                          amount: editForm.amount,
+                          category: editForm.category || null,
+                        },
+                        ledgerOwner
+                      );
                       refetch();
                       setEditingRow(null);
                     }}

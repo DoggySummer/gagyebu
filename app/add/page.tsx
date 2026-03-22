@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { addTransaction } from "@/actions/transactions";
 import { CATEGORIES } from "@/lib/constants";
+import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
 
 export default function AddPage() {
   const router = useRouter();
+  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
 
   async function handleSubmit(formData: FormData) {
-    await addTransaction(formData);
+    await addTransaction(formData, ledgerOwner);
     router.push("/chart");
   }
 

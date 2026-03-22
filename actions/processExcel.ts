@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
+import type { LedgerOwner } from "@/lib/ledgerOwner";
 import { revalidatePath } from "next/cache";
 
 const BATCH_SIZE = 20;
@@ -40,6 +41,51 @@ JSON 배열만 응답. 마크다운/다른 텍스트 없이:
 데이터:
 `;
 
+const CLAUDE_PROMPT_2 = `
+아래는 신한은행 체크카드 통장 거래내역 데이터야. 탭으로 구분되어 있어.
+컬럼 순서: 거래일자 | 거래시간 | 적요 | 출금(원) | 입금(원) | 내용(가맹점) | 잔액(원) | 거래점
+
+[필터링 - 아래 행은 제외]
+- 적요가 "체크카드"가 아닌 행 (이자, 자동이체, 펌뱅킹 이체, 모바일, 현금IC, 타행인터넷뱅킹, 신한카드, 효성CD, 인터넷 등)
+- 내용(가맹점)이 비어있는 행
+
+[날짜 변환]
+- "YYYY-MM-DD" 형식이면 그대로 사용
+- "YY.MM.DD" / "YY/MM/DD" → "20YY-MM-DD"
+- 변환 불가 행은 제외
+
+[금액]
+- 출금(원) > 0이면 양수 금액
+- 입금(원) > 0이고 출금(원) = 0이면 음수(-) 금액 (환불/취소)
+- 쉼표 제거 후 정수
+
+[카드]
+- 모든 행은 "신한 체크카드"로 고정
+
+[구분]
+- 이 데이터에는 할부 정보가 없으므로 모든 행 "일시불"로 고정
+
+[카테고리] 가맹점명(내용 컬럼) 기준으로 반드시 아래 중 하나:
+식비 / 교통 / 문화·여가 / 여행 / 의료 / 게임 / 기타
+- 카페·베이커리·음식점·편의점(음식류) → 식비
+- 택시·버스·지하철·주유·주차 → 교통
+- 서점·공연·영화·음악·스트리밍 → 문화·여가
+- 항공·숙박·여행사 → 여행
+- 약국·병원·의원 → 의료
+- 게임(넥슨·스팀·넷마블 등 게임 플랫폼) → 게임
+- 그 외 마트·쇼핑·구독서비스·기타 → 기타
+
+[절대 금지]
+- 필터링된 행 포함 금지
+- 가맹점명 임의 수정 금지. 내용 컬럼 원본 텍스트 그대로 사용
+- 출력 행 수 = 필터링 후 남은 행 수
+
+JSON 배열만 응답. 마크다운/다른 텍스트 없이:
+[{"date":"YYYY-MM-DD","card":"신한 체크카드","payType":"일시불","merchant":"...","amount":0,"category":"..."}]
+
+데이터:
+`;
+
 interface ClaudeRow {
   date: string;
   card: string;
@@ -54,8 +100,16 @@ const DATE_PATTERN = /^\d{2,4}[.\-\/]\d{2}[.\-\/]\d{2}$/;
 
 // 소계/합계/헤더 행 판별용 키워드
 const SKIP_KEYWORDS = [
-  "카드소계", "소 계", "합 계", "합계", "이하 여백",
-  "거래일자", "이용일자", "가맹점명", "이용하신", "총건수",
+  "카드소계",
+  "소 계",
+  "합 계",
+  "합계",
+  "이하 여백",
+  "거래일자",
+  "이용일자",
+  "가맹점명",
+  "이용하신",
+  "총건수",
 ];
 
 function isSkipRow(cell: string): boolean {
@@ -104,7 +158,9 @@ function parseKBFormat(raw: string[][]): string[][] {
 
   for (const row of raw) {
     const cells = row.map((c) => String(c ?? "").trim());
-    const hasDate = cells.some((c) => c.includes("이용일자") || c.includes("거래일자"));
+    const hasDate = cells.some(
+      (c) => c.includes("이용일자") || c.includes("거래일자"),
+    );
     const hasCard = cells.some((c) => c.includes("이용카드"));
 
     if (hasDate && hasCard) {
@@ -127,10 +183,16 @@ function parseKBFormat(raw: string[][]): string[][] {
 
     // 표준화된 행으로 변환: [날짜, 구분, 가맹점, 금액, 할부, 카드명]
     const card = cardColIdx !== -1 ? String(row[cardColIdx] ?? "").trim() : "";
-    const payType = payTypeColIdx !== -1 ? String(row[payTypeColIdx] ?? "").trim() : "";
-    const merchant = merchantColIdx !== -1 ? String(row[merchantColIdx] ?? "").trim() : "";
-    const amount = amountColIdx !== -1 ? String(row[amountColIdx] ?? "").trim() : "";
-    const installment = installmentColIdx !== -1 ? String(row[installmentColIdx] ?? "").trim() : "";
+    const payType =
+      payTypeColIdx !== -1 ? String(row[payTypeColIdx] ?? "").trim() : "";
+    const merchant =
+      merchantColIdx !== -1 ? String(row[merchantColIdx] ?? "").trim() : "";
+    const amount =
+      amountColIdx !== -1 ? String(row[amountColIdx] ?? "").trim() : "";
+    const installment =
+      installmentColIdx !== -1
+        ? String(row[installmentColIdx] ?? "").trim()
+        : "";
 
     result.push([dateCell, payType, merchant, amount, installment, card]);
   }
@@ -158,7 +220,7 @@ function extractJsonArray(text: string): ClaudeRow[] {
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) {
     throw new Error(
-      `Claude 응답에서 JSON 배열을 찾을 수 없음.\n응답: ${text.slice(0, 300)}`
+      `Claude 응답에서 JSON 배열을 찾을 수 없음.\n응답: ${text.slice(0, 300)}`,
     );
   }
   return JSON.parse(match[0]) as ClaudeRow[];
@@ -166,7 +228,8 @@ function extractJsonArray(text: string): ClaudeRow[] {
 
 /** 엑셀 파일을 파싱 → 포맷 감지 → 거래 행 추출 → Claude로 정규화 → DB 저장 */
 export async function processExcelAndSave(
-  formData: FormData
+  formData: FormData,
+  owner: LedgerOwner
 ): Promise<{
   ok: boolean;
   count?: number;
@@ -209,7 +272,7 @@ export async function processExcelAndSave(
 
     // 빈 행 제거
     const cleanRaw = raw.filter((row) =>
-      row.some((cell) => String(cell).trim() !== "")
+      row.some((cell) => String(cell).trim() !== ""),
     );
 
     // ── 포맷 감지 & 거래 행 추출 ──────────────────────────────
@@ -225,6 +288,9 @@ export async function processExcelAndSave(
     const client = new Anthropic({ apiKey });
     const allResults: ClaudeRow[] = [];
 
+    const claudePrompt =
+      owner === "gilwoong" ? CLAUDE_PROMPT_2 : CLAUDE_PROMPT;
+
     for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
       const batch = dataRows.slice(i, i + BATCH_SIZE);
       const batchText = batch
@@ -234,7 +300,7 @@ export async function processExcelAndSave(
       const response = await client.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4000,
-        messages: [{ role: "user", content: CLAUDE_PROMPT + batchText }],
+        messages: [{ role: "user", content: claudePrompt + batchText }],
       });
 
       const rawText =
@@ -246,22 +312,26 @@ export async function processExcelAndSave(
     if (allResults.length === 0) {
       return {
         ok: false,
-        error: "Claude가 거래 데이터를 추출하지 못했습니다. 파일을 확인해 주세요.",
+        error:
+          "Claude가 거래 데이터를 추출하지 못했습니다. 파일을 확인해 주세요.",
       };
     }
 
-    // ── DB 저장 ───────────────────────────────────────────────
-    await prisma.transaction.createMany({
-      data: allResults.map((tx) => ({
-        date: new Date(tx.date),
-        card: tx.card ?? "",
-        payType: tx.payType ?? "일시불",
-        merchant: tx.merchant ?? "",
-        amount: Number(tx.amount) || 0,
-        category: tx.category ?? null,
-        sourceFile,
-      })),
-    });
+    // ── DB 저장 (아빠꺼: transactions / 길웅이꺼: mytransactions) ──
+    const rows = allResults.map((tx) => ({
+      date: new Date(tx.date),
+      card: tx.card ?? "",
+      payType: tx.payType ?? "일시불",
+      merchant: tx.merchant ?? "",
+      amount: Number(tx.amount) || 0,
+      category: tx.category ?? null,
+      sourceFile,
+    }));
+    if (owner === "gilwoong") {
+      await prisma.myTransaction.createMany({ data: rows });
+    } else {
+      await prisma.transaction.createMany({ data: rows });
+    }
 
     revalidatePath("/chart");
     return {
@@ -271,7 +341,8 @@ export async function processExcelAndSave(
       detectedFormat: format, // 디버깅용: 어떤 포맷으로 감지됐는지 확인 가능
     };
   } catch (e) {
-    const message = e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
+    const message =
+      e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
     return { ok: false, error: message };
   }
 }

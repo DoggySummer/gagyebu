@@ -24,3 +24,20 @@ CREATE TABLE IF NOT EXISTS transactions (
   INDEX idx_date (date),
   INDEX idx_category (category)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3. mytransactions (길웅 가계부 — 구조는 transactions와 동일)
+CREATE TABLE IF NOT EXISTS mytransactions (
+  id          INT          NOT NULL AUTO_INCREMENT,
+  date        DATE         NOT NULL,
+  card        VARCHAR(50)  NOT NULL,
+  payType     VARCHAR(20)  NOT NULL,
+  merchant    VARCHAR(255) NOT NULL,
+  amount      INT          NOT NULL,
+  category   VARCHAR(50)  NULL,
+  sourceFile VARCHAR(100) NULL,
+  createdAt   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+  PRIMARY KEY (id),
+  INDEX idx_date (date),
+  INDEX idx_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

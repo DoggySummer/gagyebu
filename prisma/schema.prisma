@@ -21,3 +21,20 @@ model Transaction {
   @@index([category])
   @@map("transactions")
 }
+
+/// 길웅 가계부 (사이드바 "길웅이꺼" 선택 시)
+model MyTransaction {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  card        String   @db.VarChar(50)
+  payType     String   @db.VarChar(20)
+  merchant    String   @db.VarChar(255)
+  amount      Int
+  category   String?  @db.VarChar(50)
+  sourceFile String?  @db.VarChar(100)
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([category])
+  @@map("mytransactions")
+}

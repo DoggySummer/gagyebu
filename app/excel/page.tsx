@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { processExcelAndSave } from "@/actions/processExcel";
+import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
 
 /** 엑셀 업로드 → Claude 프롬프트 해석 → JSON → MySQL 저장, 성공 시 alert('저장되었습니다!') */
 export default function ExcelPage() {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -23,7 +25,7 @@ export default function ExcelPage() {
     setSaving(true);
     const formData = new FormData();
     formData.set("file", file);
-    const result = await processExcelAndSave(formData);
+    const result = await processExcelAndSave(formData, ledgerOwner);
     setSaving(false);
     if (result.ok) {
       if (result.parsedJson) {

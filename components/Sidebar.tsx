@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
 
 const NAV = [
   { href: "/chart", label: "차트" },
@@ -14,6 +15,8 @@ const NAV = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
+  const setLedgerOwner = useLedgerOwnerStore((s) => s.setLedgerOwner);
 
   const navAndLogout = (
     <div className="flex flex-col pt-2">
@@ -33,6 +36,39 @@ export default function Sidebar() {
           </Link>
         ))}
       </nav>
+      <div
+        className="mt-4 pt-4 border-t border-[var(--border)]"
+        role="group"
+        aria-label="가계부 보기 대상"
+      >
+        <p className="px-1 mb-2 text-xs font-medium text-[var(--text-muted)]">보기</p>
+        <div className="flex rounded-lg p-1 bg-black/[0.04] dark:bg-white/[0.06]">
+          <button
+            type="button"
+            onClick={() => setLedgerOwner("appa")}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors cursor-pointer ${
+              ledgerOwner === "appa"
+                ? "bg-[var(--card-bg)] text-[var(--text)] shadow-sm border border-[var(--border)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            }`}
+            aria-pressed={ledgerOwner === "appa"}
+          >
+            아빠꺼
+          </button>
+          <button
+            type="button"
+            onClick={() => setLedgerOwner("gilwoong")}
+            className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors cursor-pointer ${
+              ledgerOwner === "gilwoong"
+                ? "bg-[var(--card-bg)] text-[var(--text)] shadow-sm border border-[var(--border)]"
+                : "text-[var(--text-muted)] hover:text-[var(--text)]"
+            }`}
+            aria-pressed={ledgerOwner === "gilwoong"}
+          >
+            길웅이꺼
+          </button>
+        </div>
+      </div>
       <div className="pt-4">
         <button
           type="button"
