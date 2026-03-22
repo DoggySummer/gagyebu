@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import * as d3 from "d3";
 import { motion } from "framer-motion";
 import { getTransactions } from "@/actions/transactions";
+import type { LedgerOwner } from "@/lib/ledgerOwner";
 import { aggregateByCategory, CATEGORIES, type ChartDatum } from "@/lib/constants";
 
 const H = 260;
@@ -14,6 +15,7 @@ interface CompareMonthChartProps {
   chartData: ChartDatum[];
   year: number;
   month: number;
+  ledgerOwner: LedgerOwner;
 }
 
 interface TooltipState {
@@ -80,7 +82,12 @@ function DiffBar({ category, diff, x, barWidth, y, height, zeroY, fill, animatio
 }
 
 // ─── 메인 컴포넌트 ───
-export default function CompareMonthChart({ chartData, year, month }: CompareMonthChartProps) {
+export default function CompareMonthChart({
+  chartData,
+  year,
+  month,
+  ledgerOwner,
+}: CompareMonthChartProps) {
   const [compareMonthKey, setCompareMonthKey] = useState<string | null>(null);
   const [compareChartData, setCompareChartData] = useState<ChartDatum[]>([]);
   const [chartWidth, setChartWidth] = useState(320);
@@ -106,9 +113,14 @@ export default function CompareMonthChart({ chartData, year, month }: CompareMon
   }, []);
 
   useEffect(() => {
-    if (!compareMonthKey) { setCompareChartData([]); return; }
-    getTransactions(compareMonthKey).then((txs) => setCompareChartData(aggregateByCategory(txs)));
-  }, [compareMonthKey]);
+    if (!compareMonthKey) {
+      setCompareChartData([]);
+      return;
+    }
+    getTransactions(compareMonthKey, ledgerOwner).then((txs) =>
+      setCompareChartData(aggregateByCategory(txs)),
+    );
+  }, [compareMonthKey, ledgerOwner]);
 
   const compareMonthOptions = useMemo(() => {
     const options: { key: string; label: string }[] = [];
