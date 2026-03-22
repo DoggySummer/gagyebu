@@ -3,6 +3,7 @@
  */
 export const CATEGORIES = [
   "식비",
+  "카페",
   "생활·마트",
   "교통",
   "의료",
