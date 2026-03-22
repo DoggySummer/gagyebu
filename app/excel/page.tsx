@@ -1,27 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import { processExcelAndSave } from "@/actions/processExcel";
 import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
 
-/** 엑셀 업로드 → Claude 프롬프트 해석 → JSON → MySQL 저장, 성공 시 alert('저장되었습니다!') */
+/** 엑셀 업로드 → Claude 프롬프트 해석 → JSON → MySQL 저장 */
 export default function ExcelPage() {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [successCount, setSuccessCount] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
+
+  useEffect(() => {
+    if (!saving) return;
+    setElapsedSec(0);
+    const id = setInterval(() => {
+      setElapsedSec((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [saving]);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     setFile(f ?? null);
+    setSuccessCount(null);
+    setErrorMessage(null);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!file) {
-      alert("엑셀 파일을 선택해 주세요.");
+      setErrorMessage("엑셀 파일을 선택해 주세요.");
+      setSuccessCount(null);
       return;
     }
+    setErrorMessage(null);
+    setSuccessCount(null);
     setSaving(true);
     const formData = new FormData();
     formData.set("file", file);
@@ -31,14 +48,17 @@ export default function ExcelPage() {
       if (result.parsedJson) {
         console.log("[Claude 파싱 JSON]", result.parsedJson);
       }
-      alert(result.count != null ? `저장되었습니다! (${result.count}건)` : "저장되었습니다!");
+      setSuccessCount(result.count ?? 0);
       setFile(null);
       const input = document.getElementById("excel-file") as HTMLInputElement;
       if (input) input.value = "";
     } else {
       const errMsg = result.error ?? String(result);
-      console.error("[엑셀 저장 오류] 아래 객체를 펼치면 전체 메시지를 볼 수 있습니다.", { error: errMsg });
-      alert("오류가 발생했습니다.");
+      console.error(
+        "[엑셀 저장 오류] 아래 객체를 펼치면 전체 메시지를 볼 수 있습니다.",
+        { error: errMsg },
+      );
+      setErrorMessage("오류가 발생했습니다.");
     }
   }
 
@@ -84,6 +104,31 @@ export default function ExcelPage() {
             >
               {saving ? "저장 중..." : "저장하기"}
             </button>
+
+            {saving && (
+              <div className="pt-2 space-y-3 border-t border-[var(--border)]">
+                <p className="text-sm text-[var(--text)]">
+                  걸린 시간: {elapsedSec}초
+                </p>
+                <div className="flex items-center gap-3 text-sm text-[var(--text-muted)]">
+                  <span
+                    className="inline-block size-5 shrink-0 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin"
+                    aria-hidden
+                  />
+                  <span>로딩중...</span>
+                </div>
+              </div>
+            )}
+
+            {!saving && successCount !== null && (
+              <p className="text-sm text-[var(--accent)] font-medium pt-1">
+                저장되었습니다! 총 데이터 : {successCount}개
+              </p>
+            )}
+
+            {!saving && errorMessage && (
+              <p className="text-sm text-red-600 pt-1">{errorMessage}</p>
+            )}
           </form>
         </div>
       </div>
