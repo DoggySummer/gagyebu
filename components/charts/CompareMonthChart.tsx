@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import * as d3 from "d3";
 import { motion } from "framer-motion";
 import { getTransactions } from "@/actions/transactions";
-import type { LedgerOwner } from "@/lib/ledgerOwner";
+import type { LedgerUserId } from "@/lib/ledgerUser";
 import { aggregateByCategory, CATEGORIES, type ChartDatum } from "@/lib/constants";
 
 const H = 260;
@@ -15,7 +15,7 @@ interface CompareMonthChartProps {
   chartData: ChartDatum[];
   year: number;
   month: number;
-  ledgerOwner: LedgerOwner;
+  ledgerUserId: LedgerUserId;
 }
 
 interface TooltipState {
@@ -86,7 +86,7 @@ export default function CompareMonthChart({
   chartData,
   year,
   month,
-  ledgerOwner,
+  ledgerUserId,
 }: CompareMonthChartProps) {
   const [compareMonthKey, setCompareMonthKey] = useState<string | null>(null);
   const [compareChartData, setCompareChartData] = useState<ChartDatum[]>([]);
@@ -117,10 +117,10 @@ export default function CompareMonthChart({
       setCompareChartData([]);
       return;
     }
-    getTransactions(compareMonthKey, ledgerOwner).then((txs) =>
+    getTransactions(compareMonthKey, ledgerUserId).then((txs) =>
       setCompareChartData(aggregateByCategory(txs)),
     );
-  }, [compareMonthKey, ledgerOwner]);
+  }, [compareMonthKey, ledgerUserId]);
 
   const compareMonthOptions = useMemo(() => {
     const options: { key: string; label: string }[] = [];

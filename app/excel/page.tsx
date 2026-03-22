@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import { processExcelAndSave } from "@/actions/processExcel";
-import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
+import { useLedgerUserStore } from "@/lib/stores/ledgerUserStore";
 
 /** 엑셀 업로드 → Claude 프롬프트 해석 → JSON → MySQL 저장 */
 export default function ExcelPage() {
@@ -12,7 +12,7 @@ export default function ExcelPage() {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [successCount, setSuccessCount] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
+  const ledgerUserId = useLedgerUserStore((s) => s.ledgerUserId);
 
   useEffect(() => {
     if (!saving) return;
@@ -42,7 +42,7 @@ export default function ExcelPage() {
     setSaving(true);
     const formData = new FormData();
     formData.set("file", file);
-    const result = await processExcelAndSave(formData, ledgerOwner);
+    const result = await processExcelAndSave(formData, ledgerUserId);
     setSaving(false);
     if (result.ok) {
       if (result.parsedJson) {

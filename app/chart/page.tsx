@@ -20,7 +20,7 @@ import {
   deleteTransaction,
   type LedgerTransactionRow,
 } from "@/actions/transactions";
-import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
+import { useLedgerUserStore } from "@/lib/stores/ledgerUserStore";
 import {
   aggregateByCategory,
   getSummary,
@@ -31,7 +31,7 @@ import {
 type TransactionRow = LedgerTransactionRow;
 
 export default function ChartPage() {
-  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
+  const ledgerUserId = useLedgerUserStore((s) => s.ledgerUserId);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [chartData, setChartData] = useState<ChartDatum[]>([]);
@@ -52,13 +52,13 @@ export default function ChartPage() {
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
   const refetch = useCallback(() => {
-    getTransactions(monthKey, ledgerOwner).then((txs) => {
+    getTransactions(monthKey, ledgerUserId).then((txs) => {
       setTransactions(txs);
       const aggregated = aggregateByCategory(txs);
       setChartData(aggregated);
       setSummary(getSummary(aggregated, txs.length));
     });
-  }, [monthKey, ledgerOwner]);
+  }, [monthKey, ledgerUserId]);
 
   const columnDefs = useMemo<ColDef<TransactionRow>[]>(
     () => [
@@ -101,7 +101,7 @@ export default function ChartPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getTransactions(monthKey, ledgerOwner).then((txs) => {
+    getTransactions(monthKey, ledgerUserId).then((txs) => {
       if (cancelled) return;
       setTransactions(txs);
       const aggregated = aggregateByCategory(txs);
@@ -112,7 +112,7 @@ export default function ChartPage() {
     return () => {
       cancelled = true;
     };
-  }, [monthKey, ledgerOwner]);
+  }, [monthKey, ledgerUserId]);
 
   function prevMonth() {
     if (month === 1) {
@@ -225,7 +225,7 @@ export default function ChartPage() {
                 chartData={chartData}
                 year={year}
                 month={month}
-                ledgerOwner={ledgerOwner}
+                ledgerUserId={ledgerUserId}
               />
             </section>
 
@@ -262,7 +262,7 @@ export default function ChartPage() {
                         },
                         onDelete: async (data: { id: number }) => {
                           if (!confirm("이 거래를 삭제할까요?")) return;
-                          await deleteTransaction(data.id, ledgerOwner);
+                          await deleteTransaction(data.id, ledgerUserId);
                           refetch();
                         },
                       }}
@@ -308,7 +308,7 @@ export default function ChartPage() {
                           amount: editForm.amount,
                           category: editForm.category || null,
                         },
-                        ledgerOwner,
+                        ledgerUserId,
                       );
                       refetch();
                       setEditingRow(null);

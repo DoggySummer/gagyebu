@@ -4,19 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { useLedgerOwnerStore } from "@/lib/stores/ledgerOwnerStore";
+import { useLedgerUserStore } from "@/lib/stores/ledgerUserStore";
+import { LEDGER_USER_DAD, LEDGER_USER_GILWOONG } from "@/lib/ledgerUser";
 
 const NAV = [
   { href: "/chart", label: "차트" },
   { href: "/add", label: "내용추가" },
   { href: "/excel", label: "엑셀 추가하기" },
+  { href: "/report", label: "보고서 작성하기" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const ledgerOwner = useLedgerOwnerStore((s) => s.ledgerOwner);
-  const setLedgerOwner = useLedgerOwnerStore((s) => s.setLedgerOwner);
+  const ledgerUserId = useLedgerUserStore((s) => s.ledgerUserId);
+  const setLedgerUserId = useLedgerUserStore((s) => s.setLedgerUserId);
 
   const navAndLogout = (
     <div className="flex flex-col pt-2">
@@ -45,25 +47,25 @@ export default function Sidebar() {
         <div className="flex rounded-lg p-1 bg-black/[0.04] dark:bg-white/[0.06]">
           <button
             type="button"
-            onClick={() => setLedgerOwner("appa")}
+            onClick={() => setLedgerUserId(LEDGER_USER_DAD)}
             className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors cursor-pointer ${
-              ledgerOwner === "appa"
+              ledgerUserId === LEDGER_USER_DAD
                 ? "bg-[var(--card-bg)] text-[var(--text)] shadow-sm border border-[var(--border)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text)]"
             }`}
-            aria-pressed={ledgerOwner === "appa"}
+            aria-pressed={ledgerUserId === LEDGER_USER_DAD}
           >
             아빠꺼
           </button>
           <button
             type="button"
-            onClick={() => setLedgerOwner("gilwoong")}
+            onClick={() => setLedgerUserId(LEDGER_USER_GILWOONG)}
             className={`flex-1 rounded-md px-2 py-2 text-xs font-medium transition-colors cursor-pointer ${
-              ledgerOwner === "gilwoong"
+              ledgerUserId === LEDGER_USER_GILWOONG
                 ? "bg-[var(--card-bg)] text-[var(--text)] shadow-sm border border-[var(--border)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text)]"
             }`}
-            aria-pressed={ledgerOwner === "gilwoong"}
+            aria-pressed={ledgerUserId === LEDGER_USER_GILWOONG}
           >
             길웅이꺼
           </button>

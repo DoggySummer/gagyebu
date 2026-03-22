@@ -6,8 +6,20 @@ datasource db {
   provider = "mysql"
 }
 
+model User {
+  id           Int             @id @default(autoincrement())
+  name         String          @db.VarChar(50)
+  createdAt    DateTime        @default(now())
+  transactions Transaction[]
+  monthlyReports MonthlyReport[]
+
+  @@map("users")
+}
+
 model Transaction {
   id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   date        DateTime @db.Date
   card        String   @db.VarChar(50)
   payType     String   @db.VarChar(20)
@@ -17,24 +29,22 @@ model Transaction {
   sourceFile String?  @db.VarChar(100)
   createdAt   DateTime @default(now())
 
-  @@index([date])
-  @@index([category])
+  @@index([userId, date])
+  @@index([userId, category])
   @@map("transactions")
 }
 
-/// 길웅 가계부 (사이드바 "길웅이꺼" 선택 시)
-model MyTransaction {
-  id          Int      @id @default(autoincrement())
-  date        DateTime @db.Date
-  card        String   @db.VarChar(50)
-  payType     String   @db.VarChar(20)
-  merchant    String   @db.VarChar(255)
-  amount      Int
-  category   String?  @db.VarChar(50)
-  sourceFile String?  @db.VarChar(100)
-  createdAt   DateTime @default(now())
+/// 월별 AI 보고서 (users.id + YYYY-MM당 1건)
+model MonthlyReport {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  monthKey  String   @db.VarChar(7)
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([date])
-  @@index([category])
-  @@map("mytransactions")
+  @@unique([userId, monthKey])
+  @@index([userId])
+  @@map("monthly_reports")
 }

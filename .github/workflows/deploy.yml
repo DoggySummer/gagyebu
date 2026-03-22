@@ -34,5 +34,6 @@ jobs:
             cd ${{ secrets.APP_DIR || '/home/deploy/apps/blog' }}
             git pull origin main
             npm ci
+            npx prisma generate
             npm run build
             pm2 restart gagyebu --update-env

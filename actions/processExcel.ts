@@ -3,7 +3,10 @@
 import * as XLSX from "xlsx";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
-import type { LedgerOwner } from "@/lib/ledgerOwner";
+import {
+  LEDGER_USER_GILWOONG,
+  requireLedgerUserId,
+} from "@/lib/ledgerUser";
 import { revalidatePath } from "next/cache";
 
 const BATCH_SIZE = 20;
@@ -235,7 +238,7 @@ function extractJsonArray(text: string): ClaudeRow[] {
 /** 엑셀 파일을 파싱 → 포맷 감지 → 거래 행 추출 → Claude로 정규화 → DB 저장 */
 export async function processExcelAndSave(
   formData: FormData,
-  owner: LedgerOwner,
+  userId: number,
 ): Promise<{
   ok: boolean;
   count?: number;
@@ -258,6 +261,8 @@ export async function processExcelAndSave(
   if (!apiKey) {
     return { ok: false, error: "ANTHROPIC_API_KEY가 설정되지 않았습니다." };
   }
+
+  const uid = requireLedgerUserId(userId);
 
   try {
     const sourceFile = file.name;
@@ -294,7 +299,8 @@ export async function processExcelAndSave(
     const client = new Anthropic({ apiKey });
     const allResults: ClaudeRow[] = [];
 
-    const claudePrompt = owner === "gilwoong" ? CLAUDE_PROMPT_2 : CLAUDE_PROMPT;
+    const claudePrompt =
+      uid === LEDGER_USER_GILWOONG ? CLAUDE_PROMPT_2 : CLAUDE_PROMPT;
 
     for (let i = 0; i < dataRows.length; i += BATCH_SIZE) {
       const batch = dataRows.slice(i, i + BATCH_SIZE);
@@ -322,8 +328,8 @@ export async function processExcelAndSave(
       };
     }
 
-    // ── DB 저장 (아빠꺼: transactions / 길웅이꺼: mytransactions) ──
     const rows = allResults.map((tx) => ({
+      userId: uid,
       date: new Date(tx.date),
       card: tx.card ?? "",
       payType: tx.payType ?? "일시불",
@@ -332,11 +338,7 @@ export async function processExcelAndSave(
       category: tx.category ?? null,
       sourceFile,
     }));
-    if (owner === "gilwoong") {
-      await prisma.myTransaction.createMany({ data: rows });
-    } else {
-      await prisma.transaction.createMany({ data: rows });
-    }
+    await prisma.transaction.createMany({ data: rows });
 
     revalidatePath("/chart");
     return {

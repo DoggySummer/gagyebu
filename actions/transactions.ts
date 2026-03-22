@@ -1,37 +1,29 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import type { LedgerOwner } from "@/lib/ledgerOwner";
+import { requireLedgerUserId } from "@/lib/ledgerUser";
 import { revalidatePath } from "next/cache";
 
-import type { Transaction, MyTransaction } from "@prisma/client";
+import type { Transaction } from "@prisma/client";
 
-export type LedgerTransactionRow = Transaction | MyTransaction;
+export type LedgerTransactionRow = Transaction;
 
-/** 월별 거래 조회 (YYYY-MM 형식) — 아빠꺼: transactions, 길웅이꺼: mytransactions */
+/** 월별 거래 조회 (YYYY-MM) — userId별 transactions */
 export async function getTransactions(
   month: string | undefined,
-  owner: LedgerOwner
-): Promise<LedgerTransactionRow[]> {
-  if (owner === "gilwoong") {
-    if (!month) {
-      return prisma.myTransaction.findMany({ orderBy: { date: "desc" } });
-    }
-    const start = new Date(`${month}-01`);
-    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-    return prisma.myTransaction.findMany({
-      where: { date: { gte: start, lt: end } },
-      orderBy: { date: "asc" },
-    });
-  }
-
+  userId: number,
+): Promise<Transaction[]> {
+  const uid = requireLedgerUserId(userId);
   if (!month) {
-    return prisma.transaction.findMany({ orderBy: { date: "desc" } });
+    return prisma.transaction.findMany({
+      where: { userId: uid },
+      orderBy: { date: "desc" },
+    });
   }
   const start = new Date(`${month}-01`);
   const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
   return prisma.transaction.findMany({
-    where: { date: { gte: start, lt: end } },
+    where: { userId: uid, date: { gte: start, lt: end } },
     orderBy: { date: "asc" },
   });
 }
@@ -39,22 +31,21 @@ export async function getTransactions(
 /** 수동 항목 추가 */
 export async function addTransaction(
   formData: FormData,
-  owner: LedgerOwner
+  userId: number,
 ) {
-  const data = {
-    date: new Date(formData.get("date") as string),
-    card: (formData.get("card") as string) || "마스터034",
-    payType: (formData.get("payType") as string) ?? "일시불",
-    merchant: formData.get("merchant") as string,
-    amount: Number(formData.get("amount")),
-    category: formData.get("category") as string,
-    sourceFile: "manual",
-  };
-  if (owner === "gilwoong") {
-    await prisma.myTransaction.create({ data });
-  } else {
-    await prisma.transaction.create({ data });
-  }
+  const uid = requireLedgerUserId(userId);
+  await prisma.transaction.create({
+    data: {
+      userId: uid,
+      date: new Date(formData.get("date") as string),
+      card: (formData.get("card") as string) || "마스터034",
+      payType: (formData.get("payType") as string) ?? "일시불",
+      merchant: formData.get("merchant") as string,
+      amount: Number(formData.get("amount")),
+      category: formData.get("category") as string,
+      sourceFile: "manual",
+    },
+  });
   revalidatePath("/chart");
 }
 
@@ -62,27 +53,25 @@ export async function addTransaction(
 export async function updateTransaction(
   id: number,
   data: { merchant: string; amount: number; category: string | null },
-  owner: LedgerOwner
+  userId: number,
 ) {
-  const payload = {
-    merchant: data.merchant,
-    amount: data.amount,
-    category: data.category,
-  };
-  if (owner === "gilwoong") {
-    await prisma.myTransaction.update({ where: { id }, data: payload });
-  } else {
-    await prisma.transaction.update({ where: { id }, data: payload });
-  }
+  const uid = requireLedgerUserId(userId);
+  await prisma.transaction.update({
+    where: { id, userId: uid },
+    data: {
+      merchant: data.merchant,
+      amount: data.amount,
+      category: data.category,
+    },
+  });
   revalidatePath("/chart");
 }
 
 /** 항목 삭제 */
-export async function deleteTransaction(id: number, owner: LedgerOwner) {
-  if (owner === "gilwoong") {
-    await prisma.myTransaction.delete({ where: { id } });
-  } else {
-    await prisma.transaction.delete({ where: { id } });
-  }
+export async function deleteTransaction(id: number, userId: number) {
+  const uid = requireLedgerUserId(userId);
+  await prisma.transaction.delete({
+    where: { id, userId: uid },
+  });
   revalidatePath("/chart");
 }
