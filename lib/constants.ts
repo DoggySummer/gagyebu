@@ -6,6 +6,7 @@ export const CATEGORIES = [
   "카페",
   "생활·마트",
   "교통",
+  "고정비",
   "의료",
   "문화·여가",
   "게임",
@@ -35,6 +36,13 @@ export function aggregateByCategory(
     category,
     amount: map.get(category) ?? 0,
   }));
+}
+
+/** 모든 거래 금액 합(부호 포함) = 순지출. 차트 총 지출·보고서 totalNet과 동일해야 함 */
+export function totalNetSpend(
+  transactions: { amount: number }[],
+): number {
+  return transactions.reduce((sum, t) => sum + t.amount, 0);
 }
 
 /** 차트 데이터로 요약 계산 */

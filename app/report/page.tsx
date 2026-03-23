@@ -1,9 +1,110 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import Sidebar from "@/components/Sidebar";
 import { useLedgerUserStore } from "@/lib/stores/ledgerUserStore";
 import { getMonthlyReport, generateMonthlyReport } from "@/actions/report";
+
+const reportMarkdownComponents: Components = {
+  h1: ({ children }) => (
+    <h1 className="text-xl font-bold mt-6 first:mt-0 mb-3 text-[var(--text)]">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-lg font-semibold mt-5 first:mt-0 mb-2 text-[var(--text)]">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-base font-semibold mt-4 first:mt-0 mb-2 text-[var(--text)]">
+      {children}
+    </h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-sm font-semibold mt-3 first:mt-0 mb-1.5 text-[var(--text)]">
+      {children}
+    </h4>
+  ),
+  p: ({ children }) => (
+    <p className="text-sm text-[var(--text)] mb-3 last:mb-0 leading-relaxed">
+      {children}
+    </p>
+  ),
+  ul: ({ children }) => (
+    <ul className="text-sm text-[var(--text)] list-disc pl-5 mb-3 space-y-1">
+      {children}
+    </ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="text-sm text-[var(--text)] list-decimal pl-5 mb-3 space-y-1">
+      {children}
+    </ol>
+  ),
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  strong: ({ children }) => (
+    <strong className="font-semibold text-[var(--text)]">{children}</strong>
+  ),
+  em: ({ children }) => <em className="italic">{children}</em>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      className="text-[var(--accent)] underline underline-offset-2 hover:opacity-90"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 border-[var(--border)] pl-3 my-3 text-[var(--text-muted)] text-sm italic">
+      {children}
+    </blockquote>
+  ),
+  code: ({ className, children, ...props }) => {
+    const inline = !className;
+    if (inline) {
+      return (
+        <code
+          className="rounded bg-black/10 dark:bg-white/10 px-1 py-0.5 text-[0.9em] font-mono"
+          {...props}
+        >
+          {children}
+        </code>
+      );
+    }
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }) => (
+    <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-black/5 dark:bg-white/5 p-3 my-3 text-sm font-mono">
+      {children}
+    </pre>
+  ),
+  hr: () => <hr className="my-4 border-[var(--border)]" />,
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-3">
+      <table className="w-full text-sm border-collapse border border-[var(--border)]">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => <thead className="bg-black/5 dark:bg-white/5">{children}</thead>,
+  th: ({ children }) => (
+    <th className="border border-[var(--border)] px-2 py-1.5 text-left font-semibold text-[var(--text)]">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border border-[var(--border)] px-2 py-1.5 text-[var(--text)]">{children}</td>
+  ),
+};
 
 export default function ReportPage() {
   const ledgerUserId = useLedgerUserStore((s) => s.ledgerUserId);
@@ -129,10 +230,15 @@ export default function ReportPage() {
           ) : (
             <div className="space-y-4">
               <div
-                className="text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed"
+                className="text-[var(--text)] leading-relaxed [&>*:first-child]:mt-0"
                 style={{ wordBreak: "keep-all" }}
               >
-                {reportBody}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={reportMarkdownComponents}
+                >
+                  {reportBody}
+                </ReactMarkdown>
               </div>
               <button
                 type="button"

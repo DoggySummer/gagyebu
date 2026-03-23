@@ -1,4 +1,4 @@
-import { aggregateByCategory } from "@/lib/constants";
+import { aggregateByCategory, totalNetSpend } from "@/lib/constants";
 
 type TxRow = {
   date: Date;
@@ -37,6 +37,7 @@ function calendarWeekdayWeekendDaysInMonth(monthKey: string): {
   return { weekdayCalendarDays, weekendCalendarDays };
 }
 
+/** 평일/주말 순지출(환불·취소 반영). 합 = totalNet과 일치 */
 function sumByWeekdayWeekend(txs: TxRow[]): {
   weekdayTotal: number;
   weekendTotal: number;
@@ -44,7 +45,6 @@ function sumByWeekdayWeekend(txs: TxRow[]): {
   let weekdayTotal = 0;
   let weekendTotal = 0;
   for (const t of txs) {
-    if (t.amount <= 0) continue;
     const dow = new Date(t.date).getDay();
     if (dow === 0 || dow === 6) weekendTotal += t.amount;
     else weekdayTotal += t.amount;
@@ -92,7 +92,23 @@ export interface ReportStatsPayload {
     };
   };
   topMerchants: { merchant: string; count: number; total: number }[];
-  totalStats: { totalSpend: number; totalRefund: number };
+  /** 차트 페이지「총 지출」과 동일: 순지출(환불·취소 반영) */
+  totalStats: {
+    totalNet: number;
+    /** 양수 거래만 합산(승인 총액, 환불 미반영) */
+    grossOutflow: number;
+    /** 음수 거래 절댓값 합 */
+    refundTotal: number;
+  };
+  /** 고정비 카테고리 순 합계(categoryTotals.고정비와 동일) */
+  fixedExpenseTotal: number;
+  /** 보고서 생성 시 Prisma로 거래 테이블에서 읽어온 범위(클라이언트 캐시 없음) */
+  dataLoad: {
+    analyzedMonthKey: string;
+    comparisonMonthKey: string;
+    analyzedTransactionCount: number;
+    comparisonTransactionCount: number;
+  };
 }
 
 export function buildReportStats(
@@ -111,7 +127,11 @@ export function buildReportStats(
   const { weekdayCalendarDays, weekendCalendarDays } =
     calendarWeekdayWeekendDaysInMonth(monthKey);
   const { weekdayTotal, weekendTotal } = sumByWeekdayWeekend(currentTxs);
-  const { totalSpend, totalRefund } = totalSpendRefund(currentTxs);
+  const { totalSpend: grossOutflow, totalRefund: refundTotal } =
+    totalSpendRefund(currentTxs);
+  const totalNet = totalNetSpend(currentTxs);
+  const fixedExpenseTotal = categoryTotals["고정비"] ?? 0;
+  const comparisonMonthKey = prevMonthKey(monthKey);
 
   return {
     categoryTotals,
@@ -121,6 +141,13 @@ export function buildReportStats(
       주말: { calendarDays: weekendCalendarDays, 총지출: weekendTotal },
     },
     topMerchants: topMerchants(currentTxs, 5),
-    totalStats: { totalSpend, totalRefund },
+    totalStats: { totalNet, grossOutflow, refundTotal },
+    fixedExpenseTotal,
+    dataLoad: {
+      analyzedMonthKey: monthKey,
+      comparisonMonthKey,
+      analyzedTransactionCount: currentTxs.length,
+      comparisonTransactionCount: prevTxs.length,
+    },
   };
 }
